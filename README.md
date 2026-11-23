@@ -25,6 +25,8 @@ What's in the runtime:
 - **`Repeated`** collects repeated fields in place while decoding (an array push on JavaScript,
   `append` on Go)
 - **`Decode`** has what generated decoders share, like building a `Map` from map entries
+- **`Fields`** lets a decoder for a message with many fields note where each one is first and
+  read the record afterwards
 - **`Error`**, **`Codec`** and **`Bytes`** (a `Uint8Array` on JavaScript, a `[]byte` on Go)
 
 `int64` fields are `Int64` from `int64`, which Iris turns into Go's `int64`. Maps are `Data.Map`.
@@ -42,24 +44,24 @@ Median of three runs on an Apple M5 Max. Go 1.27, Bun 1.2.21, Iris 0.1.17-go.1.
 
 | Go (ns/op · allocs/op) | nested encode | nested decode | repeated-nested encode | repeated-nested decode | wide encode | wide decode |
 | --- | --- | --- | --- | --- | --- | --- |
-| yoga-protobuf (Iris) | 152 ns · 1 | 401 ns · 22 | 12,993 ns · 1 | 24,976 ns · 1011 | 265 ns · 1 | 491 ns · 11 |
-| protoc-gen-go | 619 ns · 21 | 764 ns · 36 | 23,710 ns · 1 | 44,041 ns · 2012 | 352 ns · 1 | 408 ns · 11 |
-| vtprotobuf | 176 ns · 1 | 315 ns · 18 | 6,591 ns · 1 | 21,242 ns · 2012 | 103 ns · 1 | 232 ns · 11 |
-| hyperpb | – | 244 ns · 2 | – | 17,127 ns · 1 | – | 326 ns · 2 |
-| hyperpb (profile-guided) | – | 249 ns · 2 | – | 16,150 ns · 1 | – | 327 ns · 2 |
+| yoga-protobuf (Iris) | 145 ns · 1 | 398 ns · 22 | 12,209 ns · 1 | 22,933 ns · 1011 | 254 ns · 1 | 415 ns · 11 |
+| protoc-gen-go | 614 ns · 21 | 704 ns · 36 | 23,504 ns · 1 | 44,013 ns · 2012 | 355 ns · 1 | 388 ns · 11 |
+| vtprotobuf | 174 ns · 1 | 298 ns · 18 | 6,363 ns · 1 | 21,359 ns · 2012 | 101 ns · 1 | 231 ns · 11 |
+| hyperpb | – | 242 ns · 2 | – | 16,726 ns · 1 | – | 318 ns · 2 |
+| hyperpb (profile-guided) | – | 238 ns · 2 | – | 15,503 ns · 1 | – | 319 ns · 2 |
 
 | Bun (ns/op) | nested encode | nested decode | repeated-nested encode | repeated-nested decode | wide encode | wide decode |
 | --- | --- | --- | --- | --- | --- | --- |
-| yoga-protobuf | 612 ns | 816 ns | 41,631 ns | 43,503 ns | 921 ns | 1,996 ns |
-| protobuf-es | 608 ns | 998 ns | 49,929 ns | 91,961 ns | 1,481 ns | 1,378 ns |
-| protobufjs (static) | 688 ns | 509 ns | 58,978 ns | 33,022 ns | 1,089 ns | 638 ns |
+| yoga-protobuf | 585 ns | 805 ns | 39,772 ns | 41,509 ns | 896 ns | 947 ns |
+| protobuf-es | 605 ns | 998 ns | 49,484 ns | 89,668 ns | 1,470 ns | 1,347 ns |
+| protobufjs (static) | 680 ns | 507 ns | 57,747 ns | 32,697 ns | 1,090 ns | 628 ns |
 
 hyperpb only decodes, into an arena it reuses. vtprotobuf doesn't check UTF-8 when it encodes;
 protoc-gen-go and this library do. For scale: the existing `protobuf` package took about 150 µs
 for an encode plus a decode of the nested message.
 
-Wide messages are the weak spot: each field the decoder reads passes all fifty fields on to the
-next step of its loop, which costs on both backends.
+Still behind: vtprotobuf on encoding anything big or wide, protoc-gen-go and vtprotobuf on
+decoding the wide message on Go, and protobufjs on decoding on Bun.
 
 ### Running them
 
