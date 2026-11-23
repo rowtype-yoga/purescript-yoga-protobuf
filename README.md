@@ -1,7 +1,7 @@
 # purescript-yoga-protobuf
 
 Fast protocol buffers for PureScript. The same code runs on JavaScript and, compiled with
-[Iris](https://github.com/i-am-the-slime/purescript-analyzer/tree/iris-go), as native Go.
+[Iris](https://github.com/i-am-the-slime/iris-go-backend), as native Go.
 
 You point `protoc` at your `.proto` files and get a PureScript module per file. Messages are plain
 records, decoding gives you an `Either DecodeError`, and broken input is a `Left`, never an
@@ -21,7 +21,8 @@ decoders. proto3 and proto2 work; editions, groups and extensions don't yet.
 
 ## Generating code
 
-You need `protoc`, and either Iris and Go 1.27 for the native plugin or Bun for the other one.
+You need `protoc`, and either Iris and Go 1.27 for the native plugin
+(`brew install spago i-am-the-slime/tap/iris`) or Bun for the other one.
 
 ```
 iris go -p protoc-gen-purescript --entry Yoga.Protobuf.Plugin.Native.main
