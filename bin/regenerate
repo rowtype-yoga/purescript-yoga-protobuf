@@ -16,7 +16,7 @@ cp -R plugin/src/Yoga/Protobuf/Plugin/Google "$before/"
 generate --purescript_out=module_prefix=Yoga.Protobuf.Plugin:plugin/src -I plugin/proto \
   google/protobuf/descriptor.proto google/protobuf/compiler/plugin.proto
 generate --purescript_out=bench/src -I bench/proto bench.proto
-generate --purescript_out=spec/src -I spec/proto features.proto imported.proto legacy.proto
+generate --purescript_out=spec/src -I spec/proto features.proto imported.proto legacy.proto nothing.proto
 
 if diff -r "$before/Google" plugin/src/Yoga/Protobuf/Plugin/Google >/dev/null; then
   echo "fixpoint: the plugin's descriptor modules are unchanged"

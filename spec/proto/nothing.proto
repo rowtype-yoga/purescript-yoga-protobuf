@@ -1,0 +1,4 @@
+syntax = "proto3";
+package nothing;
+
+// No messages or enums: the module for it has nothing in it, but it compiles.
