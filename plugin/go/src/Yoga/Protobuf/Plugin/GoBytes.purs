@@ -6,13 +6,16 @@ module Yoga.Protobuf.Plugin.GoBytes
   ) where
 
 import Go.Bytes as Go
+
 import Yoga.Protobuf.Bytes (Bytes)
 
+-- | The same bytes, as this library's.
 toYoga :: Go.Bytes -> Bytes
 toYoga bytes = toYogaImpl bytes
 
 foreign import toYogaImpl :: Go.Bytes -> Bytes
 
+-- | The same bytes, as purescript-go's.
 fromYoga :: Bytes -> Go.Bytes
 fromYoga bytes = fromYogaImpl bytes
 

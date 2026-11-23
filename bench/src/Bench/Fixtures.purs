@@ -11,6 +11,7 @@ import Prelude
 import Effect (Effect)
 import Yoga.Protobuf.Bytes (Bytes)
 
+-- | The implementation that wrote a fixture.
 data Writer = ProtocGenGo | ProtobufEs
 
 -- | `bench/fixtures/<name>.bin` from protoc-gen-go, or `<name>.es.bin` from protobuf-es,

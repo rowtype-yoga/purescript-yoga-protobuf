@@ -12,9 +12,11 @@ import Effect (Effect)
 import Go.Error (ErrorMessage(..), message)
 import Go.OS (ExitCode(..), exit)
 import Go.OS.Stdio as Stdio
+
 import Yoga.Protobuf.Plugin.Generate (run)
 import Yoga.Protobuf.Plugin.GoBytes (fromYoga, toYoga)
 
+-- | Answers the one request protoc sends, or says on standard error why it can't.
 main :: Effect Unit
 main = do
   input <- Stdio.readAllBytes

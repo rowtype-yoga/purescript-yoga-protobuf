@@ -8,6 +8,7 @@ import Prelude
 
 import Effect (Effect)
 import Effect.Uncurried (EffectFn1, runEffectFn1)
+
 import Yoga.Protobuf.Bytes (Bytes)
 
 -- | Everything on standard input, once it has ended.
@@ -16,6 +17,7 @@ readAll = readAllImpl
 
 foreign import readAllImpl :: Effect Bytes
 
+-- | Writes all of the bytes, however many writes that takes.
 writeAll :: Bytes -> Effect Unit
 writeAll bytes = runEffectFn1 writeAllImpl bytes
 

@@ -9,6 +9,8 @@ import Prelude
 -- | The byte offset in the input where decoding went wrong.
 type Position = Int
 
+-- | Why bytes don't decode, and where: they end too soon, a varint is longer than ten bytes, a
+-- | tag has a wire type that can't start a field, or text isn't UTF-8.
 data DecodeError
   = Truncated Position
   | MalformedVarint Position

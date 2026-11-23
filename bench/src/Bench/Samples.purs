@@ -15,6 +15,7 @@ import Data.Maybe (Maybe(..))
 import Data.Tuple.Nested ((/\))
 import Yoga.Protobuf.Generated.Bench (Msg, RepeatedNested, Wide)
 
+-- | A bit of everything in 164 bytes.
 nested :: Msg
 nested =
   { id: 12345
@@ -28,6 +29,7 @@ nested =
   , labels: [ "alpha", "beta", "gamma" ]
   }
 
+-- | A thousand small nested messages.
 repeatedNested :: RepeatedNested
 repeatedNested = { items: map (\index -> { a: index, b: "item " <> show index }) (range 0 999) }
 

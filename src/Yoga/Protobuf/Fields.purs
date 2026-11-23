@@ -32,10 +32,12 @@ import Prelude
 
 import Data.Function.Uncurried (Fn2, Fn3, Fn4, mkFn3, mkFn4, runFn2, runFn4)
 import Data.Int64 (Int64)
+
 import Yoga.Protobuf.Bytes (Bytes)
 import Yoga.Protobuf.Bytes as Bytes
 import Yoga.Protobuf.Wire as Wire
 
+-- | Where the value of each field number starts: an `Int32Array` on JavaScript, a `[]int32` on Go.
 foreign import data Fields :: Type
 
 -- | Room for the fields numbered below `count`, none of them seen yet. It takes the input only
@@ -58,26 +60,32 @@ at fields number = runFn2 atImpl fields number
 
 foreign import atImpl :: Fn2 Fields Int Int
 
+-- | The readers below read field `number` from where it was noted, or give its default if
+-- | it wasn't. `int32`, `uint32`, `sint32` and `enum` fields, before zigzag or wrapping.
 int32 :: Fn3 Bytes Fields Int Int
 int32 = mkFn3 \input fields number -> do
   let position = at fields number
   if position < 0 then 0 else Wire.varint32 input position
 
+-- | `int64`, `uint64` and `sint64` fields, before zigzag or wrapping.
 int64 :: Fn3 Bytes Fields Int Int64
 int64 = mkFn3 \input fields number -> do
   let position = at fields number
   if position < 0 then zero else Wire.varint64 input position
 
+-- | `bool` fields.
 bool :: Fn3 Bytes Fields Int Boolean
 bool = mkFn3 \input fields number -> do
   let position = at fields number
   position >= 0 && Wire.bool input position
 
+-- | `double` fields.
 double :: Fn3 Bytes Fields Int Number
 double = mkFn3 \input fields number -> do
   let position = at fields number
   if position < 0 then 0.0 else Wire.double input position
 
+-- | `float` fields.
 float :: Fn3 Bytes Fields Int Number
 float = mkFn3 \input fields number -> do
   let position = at fields number
@@ -89,11 +97,13 @@ fixed32 = mkFn3 \input fields number -> do
   let position = at fields number
   if position < 0 then 0 else Wire.fixed32 input position
 
+-- | `fixed64` and `sfixed64` fields, as `Int64` bits.
 fixed64 :: Fn3 Bytes Fields Int Int64
 fixed64 = mkFn3 \input fields number -> do
   let position = at fields number
   if position < 0 then zero else Wire.fixed64 input position
 
+-- | A copy of a `bytes` field's payload.
 bytes :: Fn4 Bytes Fields Int Int Bytes
 bytes = mkFn4 \input fields number end -> do
   let position = at fields number

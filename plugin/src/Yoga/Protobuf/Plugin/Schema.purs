@@ -9,7 +9,10 @@ module Yoga.Protobuf.Plugin.Schema
   , Member(..)
   , Field
   , Shape(..)
+  , Packing(..)
   , ValueType(..)
+  , GeneratorError(..)
+  , describe
   , Reference
   , MapEntry
   , Import
@@ -32,12 +35,37 @@ import Data.String as String
 import Data.String.Pattern (Pattern(..))
 import Data.Traversable (traverse)
 import Data.Tuple.Nested ((/\))
+
 import Yoga.Protobuf.Plugin.Google.Protobuf.Descriptor (DescriptorProto(..), EnumDescriptorProto, FieldDescriptorProto, FieldDescriptorProto_Type(..), FileDescriptorProto)
 import Yoga.Protobuf.Plugin.Google.Protobuf.Descriptor as Descriptor
 import Yoga.Protobuf.Plugin.Names as Names
 
+-- | The files to generate modules for.
 type Schema = Array FileModel
 
+-- | Why the generator can't generate a module for a file, which protoc shows the user.
+data GeneratorError
+  = EditionsUnsupported String
+  | GroupsUnsupported String
+  | UnknownFieldType String
+  | MissingTypeName String
+  | UnknownType String String
+
+derive instance Eq GeneratorError
+
+instance Show GeneratorError where
+  show error = "(GeneratorError " <> show (describe error) <> ")"
+
+-- | The error as protoc-gen-purescript reports it.
+describe :: GeneratorError -> String
+describe = case _ of
+  EditionsUnsupported file -> file <> ": editions aren't supported yet"
+  GroupsUnsupported field -> field <> ": groups aren't supported yet"
+  UnknownFieldType field -> field <> ": unknown field type"
+  MissingTypeName field -> field <> ": no type name"
+  UnknownType field typeName -> field <> ": unknown type " <> typeName
+
+-- | A `.proto` file and the module it becomes.
 type FileModel =
   { protoName :: String
   , moduleName :: String
@@ -46,10 +74,14 @@ type FileModel =
   , enums :: Array EnumModel
   }
 
+-- | Another generated module this one refers to, and its alias.
 type Import = { moduleName :: String, alias :: String }
 
+-- | A message: `fullName` is its protocol buffer name, `name` its PureScript type's. A message
+-- | that refers to itself is `recursive`, and becomes a newtype.
 type MessageModel =
-  { name :: String
+  { fullName :: String
+  , name :: String
   , recursive :: Boolean
   , members :: Array Member
   , entries :: Array MapEntry
@@ -60,6 +92,7 @@ data Member
   = Plain Field
   | Oneof { label :: String, variable :: String, fields :: Array Field }
 
+-- | A field: its record `label`, the decoder's local `variable` for it, which isn't a keyword.
 type Field =
   { label :: String
   , variable :: String
@@ -68,6 +101,7 @@ type Field =
   , shape :: Shape
   }
 
+-- | How a field holds its value.
 data Shape
   -- | proto3 without `optional`: the value, which is left out when it's the default.
   = Implicit
@@ -75,14 +109,20 @@ data Shape
   | Required
   -- | Explicit presence, `optional` and message fields: `Maybe` the value.
   | Optional
-  -- | `repeated`, written packed or not.
-  | Repeated Boolean
+  | Repeated Packing
   | MapOf MapEntry
   -- | One of the fields of a `oneof`.
   | InOneof
 
+-- | How a repeated field is written. Decoders read both.
+data Packing = Packed | Expanded
+
+derive instance Eq Packing
+
+-- | A `map<k, v>` field's entries, which the decoder reads with `reader`.
 type MapEntry = { reader :: String, key :: ValueType, value :: ValueType }
 
+-- | The protocol buffer type of a value.
 data ValueType
   = DoubleValue
   | FloatValue
@@ -108,8 +148,11 @@ derive instance Eq ValueType
 -- | alias of the module it's from, with a dot. `zero` is the first constructor of an enum.
 type Reference = { qualifier :: String, name :: String, recursive :: Boolean, zero :: String }
 
+-- | An enum, with its constructors in the order of its values and the one for numbers it
+-- | doesn't know.
 type EnumModel =
-  { name :: String
+  { fullName :: String
+  , name :: String
   , constructors :: Array { constructor :: String, number :: Int }
   , unrecognized :: String
   }
@@ -117,13 +160,26 @@ type EnumModel =
 -- | Whether a repeated field of this type can be packed: numbers, booleans and enums.
 packable :: ValueType -> Boolean
 packable = case _ of
+  DoubleValue -> true
+  FloatValue -> true
+  Int64Value -> true
+  UInt64Value -> true
+  Int32Value -> true
+  Fixed64Value -> true
+  Fixed32Value -> true
+  BoolValue -> true
+  UInt32Value -> true
+  SFixed32Value -> true
+  SFixed64Value -> true
+  SInt32Value -> true
+  SInt64Value -> true
+  EnumValue _ -> true
   StringValue -> false
   BytesValue -> false
   MessageValue _ -> false
-  _ -> true
 
 -- | The models of the files to generate, under the module prefix.
-schemaOf :: String -> Array String -> Array FileDescriptorProto -> Either String Schema
+schemaOf :: String -> Array String -> Array FileDescriptorProto -> Either GeneratorError Schema
 schemaOf prefix toGenerate files = traverse (fileModel symbols prefix) generated
   where
   symbols = symbolTable prefix files
@@ -272,9 +328,9 @@ enumConstructors newtypes enums = settle (map (const 0) indexes)
     Nothing -> false
   all predicate values = not (any (not <<< predicate) values)
 
-fileModel :: Symbols -> String -> FileDescriptorProto -> Either String FileModel
+fileModel :: Symbols -> String -> FileDescriptorProto -> Either GeneratorError FileModel
 fileModel symbols prefix file = do
-  when (file.syntax == Just "editions") (Left (fileName <> ": editions aren't supported yet"))
+  when (file.syntax == Just "editions") (Left (EditionsUnsupported fileName))
   messages <- traverse (messageModel symbols module_ imports proto3) (Array.filter (not <<< isMapEntry) (messagesOf file))
   pure
     { protoName: fileName
@@ -310,22 +366,26 @@ importsOf symbols module_ messages = foldl add [] (Array.nub (Array.mapMaybe oth
 aliasOf :: Array Import -> String -> String
 aliasOf imports moduleName = maybe "" (\found -> found.alias <> ".") (Array.find (\entry -> entry.moduleName == moduleName) imports)
 
-messageModel :: Symbols -> String -> Array Import -> Boolean -> Found DescriptorProto -> Either String MessageModel
+messageModel :: Symbols -> String -> Array Import -> Boolean -> Found DescriptorProto -> Either GeneratorError MessageModel
 messageModel symbols module_ imports proto3 found = do
   fields <- traverse (fieldModel symbols module_ imports proto3) message.field
-  let entries = Array.mapMaybe mapEntryOf fields
   pure
-    { name: symbol.name
+    { fullName: String.drop 1 found.fullName
+    , name: symbol.name
     , recursive: symbol.recursive
     , members: membersOf fields
-    , entries
+    , entries: Array.mapMaybe mapEntryOf fields
     }
   where
   message = un DescriptorProto found.descriptor
   symbol = fromMaybe noSymbol (Map.lookup found.fullName symbols)
   mapEntryOf field = case field.shape of
     MapOf entry -> Just entry
-    _ -> Nothing
+    Implicit -> Nothing
+    Required -> Nothing
+    Optional -> Nothing
+    Repeated _ -> Nothing
+    InOneof -> Nothing
   oneofs = map (\oneof -> Names.recordLabel (fromMaybe "" oneof.name)) message.oneofDecl
   realOneof field = case field.oneofIndex of
     Just index | field.proto3Optional /= Just true -> Array.index oneofs index
@@ -340,7 +400,7 @@ messageModel symbols module_ imports proto3 found = do
     Oneof oneof -> oneof.label == label
     Plain _ -> false
 
-fieldModel :: Symbols -> String -> Array Import -> Boolean -> FieldDescriptorProto -> Either String Field
+fieldModel :: Symbols -> String -> Array Import -> Boolean -> FieldDescriptorProto -> Either GeneratorError Field
 fieldModel symbols module_ imports proto3 field = do
   value <- valueTypeOf symbols module_ imports field
   shape <- shapeOf value
@@ -350,13 +410,30 @@ fieldModel symbols module_ imports proto3 field = do
   shapeOf value
     | field.label == Just Descriptor.Repeated = case mapEntry of
         Just entry -> map MapOf (mapEntryModel entry)
-        Nothing -> Right (Repeated (packable value && packed))
+        Nothing -> Right (Repeated (if packable value && packed then Packed else Expanded))
     | field.label == Just Descriptor.Required = Right Required
     | field.proto3Optional == Just true = Right Optional
     | isJust field.oneofIndex = Right InOneof
-    | otherwise = case value of
-        MessageValue _ -> Right Optional
-        _ -> Right (if proto3 then Implicit else Optional)
+    | isMessage value || not proto3 = Right Optional
+    | otherwise = Right Implicit
+  isMessage = case _ of
+    MessageValue _ -> true
+    EnumValue _ -> false
+    DoubleValue -> false
+    FloatValue -> false
+    Int64Value -> false
+    UInt64Value -> false
+    Int32Value -> false
+    Fixed64Value -> false
+    Fixed32Value -> false
+    BoolValue -> false
+    StringValue -> false
+    BytesValue -> false
+    UInt32Value -> false
+    SFixed32Value -> false
+    SFixed64Value -> false
+    SInt32Value -> false
+    SInt64Value -> false
   packed = case field.options >>= _.packed of
     Just explicit -> explicit
     Nothing -> proto3
@@ -367,7 +444,7 @@ fieldModel symbols module_ imports proto3 field = do
     let entryName = maybe "" _.name (field.typeName >>= \typeName -> Map.lookup typeName symbols)
     pure { reader: "read" <> entryName, key, value }
 
-valueTypeOf :: Symbols -> String -> Array Import -> FieldDescriptorProto -> Either String ValueType
+valueTypeOf :: Symbols -> String -> Array Import -> FieldDescriptorProto -> Either GeneratorError ValueType
 valueTypeOf symbols module_ imports field = case field.type of
   Just TypeDouble -> Right DoubleValue
   Just TypeFloat -> Right FloatValue
@@ -386,13 +463,14 @@ valueTypeOf symbols module_ imports field = case field.type of
   Just TypeSint64 -> Right SInt64Value
   Just TypeMessage -> map MessageValue reference
   Just TypeEnum -> map EnumValue reference
-  Just TypeGroup -> Left (fieldName <> ": groups aren't supported yet")
-  _ -> Left (fieldName <> ": unknown field type")
+  Just TypeGroup -> Left (GroupsUnsupported fieldName)
+  Just (FieldDescriptorProto_TypeUnrecognized _) -> Left (UnknownFieldType fieldName)
+  Nothing -> Left (UnknownFieldType fieldName)
   where
   fieldName = fromMaybe "" field.name
   reference = do
-    typeName <- note (fieldName <> ": no type name") field.typeName
-    symbol <- note (fieldName <> ": unknown type " <> typeName) (Map.lookup typeName symbols)
+    typeName <- note (MissingTypeName fieldName) field.typeName
+    symbol <- note (UnknownType fieldName typeName) (Map.lookup typeName symbols)
     pure
       { qualifier: if symbol.moduleName == module_ then "" else aliasOf imports symbol.moduleName
       , name: symbol.name
@@ -402,7 +480,8 @@ valueTypeOf symbols module_ imports field = case field.type of
 
 enumModel :: Symbols -> Found EnumDescriptorProto -> EnumModel
 enumModel symbols found =
-  { name: symbol.name
+  { fullName: String.drop 1 found.fullName
+  , name: symbol.name
   , constructors: Array.zipWith (\constructor value -> { constructor, number: fromMaybe 0 value.number }) symbol.constructors found.descriptor.value
   , unrecognized: symbol.name <> "Unrecognized"
   }

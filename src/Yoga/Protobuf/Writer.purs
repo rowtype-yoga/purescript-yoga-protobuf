@@ -47,6 +47,7 @@ import Effect (Effect, forE)
 import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn3, runEffectFn1, runEffectFn2, runEffectFn3)
 import Effect.Unsafe (unsafePerformEffect)
 import Partial.Unsafe (unsafePartial)
+
 import Yoga.Protobuf.Bytes (Bytes)
 
 -- | Where an encoder writes. Encoders borrow one through `encodeWith` and never keep it.
@@ -114,12 +115,15 @@ int64 writer value = runEffectFn3 int64Impl writer (Int64.lowBits value) (Int64.
 
 foreign import int64Impl :: EffectFn3 Writer Int Int Unit
 
+-- | `sint32` fields, zigzag-encoded.
 sint32 :: Writer -> Int -> Effect Unit
 sint32 writer value = uint32 writer ((value `shl` 1) `xor` (value `shr` 31))
 
+-- | `sint64` fields, zigzag-encoded.
 sint64 :: Writer -> Int64 -> Effect Unit
 sint64 writer value = int64 writer (Int64.shl value one `Int64.xor` Int64.shr value (Int64.fromInt 63))
 
+-- | `bool` fields, as 0 or 1.
 bool :: Writer -> Boolean -> Effect Unit
 bool writer value = uint32 writer (if value then 1 else 0)
 
@@ -129,16 +133,19 @@ fixed32 writer value = runEffectFn2 fixed32Impl writer value
 
 foreign import fixed32Impl :: EffectFn2 Writer Int Unit
 
+-- | `fixed64` and `sfixed64` fields, whose bits are in an `Int64`.
 fixed64 :: Writer -> Int64 -> Effect Unit
 fixed64 writer value = runEffectFn3 fixed64Impl writer (Int64.lowBits value) (Int64.highBits value)
 
 foreign import fixed64Impl :: EffectFn3 Writer Int Int Unit
 
+-- | `float` fields, rounded to 32 bits.
 float :: Writer -> Number -> Effect Unit
 float writer value = runEffectFn2 floatImpl writer value
 
 foreign import floatImpl :: EffectFn2 Writer Number Unit
 
+-- | `double` fields.
 double :: Writer -> Number -> Effect Unit
 double writer value = runEffectFn2 doubleImpl writer value
 

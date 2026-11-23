@@ -90,8 +90,10 @@ baseName path = withoutExtension (fromMaybe path (Array.last (String.split (Patt
   where
   withoutExtension name = fromMaybe name (String.stripSuffix (Pattern ".proto") name)
 
+-- | The name with its first letter in lower case.
 lowerFirst :: String -> String
 lowerFirst name = String.toLower (CodeUnits.take 1 name) <> CodeUnits.drop 1 name
 
+-- | The name with its first letter in upper case.
 upperFirst :: String -> String
 upperFirst name = String.toUpper (CodeUnits.take 1 name) <> CodeUnits.drop 1 name

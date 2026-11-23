@@ -26,12 +26,17 @@ import Data.Array as Array
 import Data.Array.ST as STArray
 import Data.Function.Uncurried (Fn2, mkFn2, runFn2)
 
+-- | The values so far. Its constructor stays in this module: only `snoc` may push.
 newtype Repeated a = Repeated (Array a)
+
+-- | Nominal, so that `coerce` can't turn one into a `Repeated` of something else.
+type role Repeated nominal
 
 -- | No values. Every decoder starts from this one array, which `snoc` never pushes to.
 empty :: forall a. Repeated a
 empty = Repeated []
 
+-- | Adds the value at the end, in place: the old `Repeated` mustn't be used again.
 snoc :: forall a. Repeated a -> a -> Repeated a
 snoc values value = runFn2 snocFn values value
 

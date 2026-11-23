@@ -20,11 +20,12 @@ import Data.Int64 as Int64
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String as String
 import Data.String.Pattern (Pattern(..))
+
 import Yoga.Protobuf.Bytes (Bytes)
 import Yoga.Protobuf.Plugin.Emit (moduleFor)
 import Yoga.Protobuf.Plugin.Google.Protobuf.Compiler.Plugin (CodeGeneratorRequest, CodeGeneratorResponse, decodeCodeGeneratorRequest, defaultCodeGeneratorResponse, defaultCodeGeneratorResponse_File, encodeCodeGeneratorResponse)
 import Yoga.Protobuf.Plugin.Names as Names
-import Yoga.Protobuf.Plugin.Schema (schemaOf)
+import Yoga.Protobuf.Plugin.Schema (describe, schemaOf)
 import Yoga.Protobuf.Unsigned (UInt64(..))
 
 -- | The encoded response to an encoded request.
@@ -33,9 +34,10 @@ run input = encodeCodeGeneratorResponse case decodeCodeGeneratorRequest input of
   Left error -> failed ("protoc-gen-purescript couldn't read the request: " <> show error)
   Right request -> generate request
 
+-- | A module per file to generate, or the error that stopped the generator.
 generate :: CodeGeneratorRequest -> CodeGeneratorResponse
 generate request = case schemaOf prefix request.fileToGenerate request.protoFile of
-  Left error -> failed error
+  Left error -> failed (describe error)
   Right schema -> defaultCodeGeneratorResponse
     { supportedFeatures = Just proto3Optional
     , file = map file schema
@@ -54,9 +56,12 @@ generate request = case schemaOf prefix request.fileToGenerate request.protoFile
 proto3Optional :: UInt64
 proto3Optional = UInt64 (Int64.fromInt 1)
 
--- | The fewest plain fields a message needs to be decoded in two steps.
+-- | The fewest plain fields a message needs to be decoded in two steps. With every field set,
+-- | two steps were faster from 5 fields up on both backends; from 10 they're 10% faster on Go
+-- | and 45% on Bun. Below that, a message that sets few of its fields is better off with the
+-- | loop, as the second step reads every field the message has.
 defaultFieldsThreshold :: Int
-defaultFieldsThreshold = 20
+defaultFieldsThreshold = 10
 
 failed :: String -> CodeGeneratorResponse
 failed error = defaultCodeGeneratorResponse { error = Just error, supportedFeatures = Just proto3Optional }

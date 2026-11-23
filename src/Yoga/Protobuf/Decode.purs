@@ -41,6 +41,7 @@ import Data.Int.Bits (shr)
 import Data.Map as Map
 import Data.Map.Internal (Map(..))
 import Partial.Unsafe (unsafePartial)
+
 import Yoga.Protobuf.Bytes (Bytes)
 import Yoga.Protobuf.Bytes as Bytes
 import Yoga.Protobuf.Error (DecodeError)
@@ -52,6 +53,7 @@ import Yoga.Protobuf.Wire as Wire
 -- | curried call makes a closure per argument, and nested messages are read once per field.
 type Reader a = Fn3 Bytes Int Int (Either DecodeError a)
 
+-- | Reads a message from all of the bytes.
 decodeMessage :: forall a. Reader a -> Bytes -> Either DecodeError a
 decodeMessage read input = runFn3 read input 0 (Bytes.length input)
 

@@ -3,7 +3,12 @@
 -- |
 -- | Before measuring, it checks that the generated codecs read the bytes protoc-gen-go wrote
 -- | for the samples and write exactly those bytes back.
-module Bench.Main where
+module Bench.Main
+  ( main
+  , measure
+  , opaque
+  , sink
+  ) where
 
 import Prelude
 
@@ -72,6 +77,7 @@ check name roundTrip sample encode = do
       | encode sample /= expected -> "encoding the sample differs from protoc-gen-go"
       | otherwise -> "ok"
 
+-- | Runs `run` `iterations` times after a tenth as many to warm up, and prints a `RESULT` line.
 measure :: String -> String -> Int -> Effect Unit -> Effect Unit
 measure name operation iterations run = do
   forE 0 (iterations / 10) \_ -> run

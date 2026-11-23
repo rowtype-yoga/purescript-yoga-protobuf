@@ -41,6 +41,7 @@ import Data.Function.Uncurried (Fn2, Fn3, Fn4, mkFn2, runFn2, runFn3, runFn4)
 import Data.Int.Bits (xor, zshr, (.&.))
 import Data.Int64 (Int64)
 import Data.Int64 as Int64
+
 import Yoga.Protobuf.Bytes (Bytes)
 import Yoga.Protobuf.Unsigned (UInt32(..), UInt64(..))
 
@@ -81,20 +82,25 @@ varint64 input position = runFn3 varint64Impl fromLowHigh input position
 
 foreign import varint64Impl :: Fn3 (Fn2 Int Int Int64) Bytes Int Int64
 
+-- | `uint32` fields.
 uint32 :: Bytes -> Int -> UInt32
 uint32 input position = UInt32 (varint32 input position)
 
+-- | `uint64` fields.
 uint64 :: Bytes -> Int -> UInt64
 uint64 input position = UInt64 (varint64 input position)
 
+-- | `bool` fields: any varint but 0 is `true`.
 bool :: Bytes -> Int -> Boolean
 bool input position = runFn2 boolImpl input position
 
 foreign import boolImpl :: Fn2 Bytes Int Boolean
 
+-- | `sint32` fields, zigzag-encoded.
 sint32 :: Bytes -> Int -> Int
 sint32 input position = zigzag32 (varint32 input position)
 
+-- | `sint64` fields, zigzag-encoded.
 sint64 :: Bytes -> Int -> Int64
 sint64 input position = zigzag64 (varint64 input position)
 
@@ -104,22 +110,27 @@ fixed32 input position = runFn2 fixed32Impl input position
 
 foreign import fixed32Impl :: Fn2 Bytes Int Int
 
+-- | `fixed32` fields.
 unsignedFixed32 :: Bytes -> Int -> UInt32
 unsignedFixed32 input position = UInt32 (fixed32 input position)
 
+-- | `fixed64` fields.
 unsignedFixed64 :: Bytes -> Int -> UInt64
 unsignedFixed64 input position = UInt64 (fixed64 input position)
 
+-- | The eight little-endian bytes at `position` as `Int64` bits: `sfixed64` fields.
 fixed64 :: Bytes -> Int -> Int64
 fixed64 input position = runFn3 fixed64Impl fromLowHigh input position
 
 foreign import fixed64Impl :: Fn3 (Fn2 Int Int Int64) Bytes Int Int64
 
+-- | `float` fields.
 float :: Bytes -> Int -> Number
 float input position = runFn2 floatImpl input position
 
 foreign import floatImpl :: Fn2 Bytes Int Number
 
+-- | `double` fields.
 double :: Bytes -> Int -> Number
 double input position = runFn2 doubleImpl input position
 
@@ -138,6 +149,7 @@ invalidUtf8 = invalidUtf8Impl
 
 foreign import invalidUtf8Impl :: String
 
+-- | Whether the bytes from `start` up to `end` are UTF-8.
 utf8Valid :: Bytes -> Int -> Int -> Boolean
 utf8Valid input start end = runFn3 utf8ValidImpl input start end
 
@@ -172,12 +184,15 @@ varintCount input start end = runFn3 varintCountImpl input start end
 
 foreign import varintCountImpl :: Fn3 Bytes Int Int Int
 
+-- | The number a zigzag-encoded one stands for: 0, 1, 2, 3 are 0, -1, 1, -2.
 zigzag32 :: Int -> Int
 zigzag32 n = (n `zshr` 1) `xor` negate (n .&. 1)
 
+-- | `zigzag32` for `Int64`.
 zigzag64 :: Int64 -> Int64
 zigzag64 n = Int64.zshr n one `Int64.xor` negate (n `Int64.and` one)
 
+-- | The code for input that ends too soon.
 truncated :: Int
 truncated = -1
 

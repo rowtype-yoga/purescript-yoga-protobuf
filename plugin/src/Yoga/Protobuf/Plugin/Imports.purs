@@ -13,65 +13,70 @@ import Data.Set as Set
 import Data.String as String
 import Data.String.CodeUnits as CodeUnits
 import Data.String.Pattern (Pattern(..))
-import Data.Tuple.Nested (type (/\), (/\))
+
 import Yoga.Protobuf.Plugin.Schema (Import)
 
--- | `import Prelude`, a blank line and the imports the code uses, sorted by module.
+-- | Three blocks: `import Prelude`, the libraries the code uses, then the other generated
+-- | modules it uses, each sorted by module.
 importsFor :: Array Import -> Array String -> Array String
-importsFor generated body = [ "import Prelude", "" ] <> map render (Array.sortWith _.moduleName (Array.mapMaybe used candidates))
+importsFor generated body =
+  [ "import Prelude", "" ]
+    <> sorted (librariesFor tokens)
+    <> (if Array.null localImports then [] else [ "" ] <> localImports)
   where
   tokens = tokensOf (String.joinWith "\n" body)
-  has name = Set.member name tokens
-  qualifies alias = Array.any (\token -> String.indexOf (Pattern (alias <> ".")) token == Just 0) (Array.fromFoldable tokens)
-  used = case _ of
-    Qualified moduleName alias
-      | qualifies alias -> Just { moduleName, text: "import " <> moduleName <> " as " <> alias }
-      | otherwise -> Nothing
-    Names moduleName names -> case Array.filter (\(token /\ _) -> Array.any has token) names of
-      [] -> Nothing
-      found -> Just { moduleName, text: "import " <> moduleName <> " (" <> String.joinWith ", " (map (\(_ /\ name) -> name) found) <> ")" }
-  render found = found.text
-  candidates =
-    [ Qualified "Data.Array" "Array"
-    , Names "Data.Either" [ [ "Either", "Left", "Right" ] /\ "Either(..)" ]
-    , Names "Data.Function.Uncurried" [ [ "mkFn3" ] /\ "mkFn3", [ "runFn3" ] /\ "runFn3", [ "runFn4" ] /\ "runFn4" ]
-    , Names "Data.Int64" [ [ "Int64" ] /\ "Int64" ]
-    , Names "Data.Map" [ [ "Map" ] /\ "Map" ]
-    , Qualified "Data.Map" "Map"
-    , Names "Data.Maybe" [ [ "Maybe", "Just", "Nothing" ] /\ "Maybe(..)" ]
-    , Names "Data.Newtype" [ [ "Newtype" ] /\ "class Newtype", [ "un" ] /\ "un" ]
-    , Names "Data.Variant" [ [ "Variant" ] /\ "Variant" ]
-    , Qualified "Data.Variant" "Variant"
-    , Names "Effect" [ [ "Effect" ] /\ "Effect" ]
-    , Names "Type.Proxy" [ [ "Proxy" ] /\ "Proxy(..)" ]
-    , Names "Yoga.Protobuf.Bytes" [ [ "Bytes" ] /\ "Bytes" ]
-    , Qualified "Yoga.Protobuf.Bytes" "Bytes"
-    , Names "Yoga.Protobuf.Codec" [ [ "Codec" ] /\ "Codec", [ "codec" ] /\ "codec" ]
-    , Names "Yoga.Protobuf.Decode"
-        [ [ "Entry" ] /\ "Entry"
-        , [ "Reader" ] /\ "Reader"
-        , [ "decodeMessage" ] /\ "decodeMessage"
-        , [ "mapFromEntries" ] /\ "mapFromEntries"
-        , [ "packedInt32" ] /\ "packedInt32"
-        ]
-    , Qualified "Yoga.Protobuf.Decode" "Decode"
-    , Names "Yoga.Protobuf.Error" [ errorType, [ "failure" ] /\ "failure" ]
-    , Qualified "Yoga.Protobuf.Fields" "Fields"
-    , Qualified "Yoga.Protobuf.Repeated" "Repeated"
-    , Names "Yoga.Protobuf.Unsigned" [ [ "UInt32" ] /\ "UInt32(..)", [ "UInt64" ] /\ "UInt64(..)" ]
-    , Qualified "Yoga.Protobuf.Wire" "Wire"
-    , Names "Yoga.Protobuf.Writer" [ [ "Writer" ] /\ "Writer", [ "encodeWith" ] /\ "encodeWith" ]
-    , Qualified "Yoga.Protobuf.Writer" "Writer"
-    ]
-      <> map (\entry -> Qualified entry.moduleName entry.alias) generated
-  -- `DecodeError` is in every decoder's type; its constructors only where a decoder makes one.
-  errorType
-    | Array.any has [ "InvalidUtf8", "MalformedVarint", "Truncated" ] = [ "DecodeError" ] /\ "DecodeError(..)"
-    | otherwise = [ "DecodeError" ] /\ "DecodeError"
+  localImports = sorted (map (\entry -> Qualified entry.moduleName entry.alias) generated)
+  sorted candidates = map _.text (Array.sortWith _.moduleName (Array.mapMaybe (used tokens) candidates))
 
 data Candidate
   = Qualified String String
-  | Names String (Array (Array String /\ String))
+  -- | A module's names, each imported if the code has any of its tokens.
+  | Names String (Array { tokens :: Array String, name :: String })
+
+used :: Set String -> Candidate -> Maybe { moduleName :: String, text :: String }
+used tokens = case _ of
+  Qualified moduleName alias
+    | Array.any (\token -> String.indexOf (Pattern (alias <> ".")) token == Just 0) (Array.fromFoldable tokens) ->
+        Just { moduleName, text: "import " <> moduleName <> " as " <> alias }
+    | otherwise -> Nothing
+  Names moduleName names -> case Array.filter (\entry -> Array.any (\token -> Set.member token tokens) entry.tokens) names of
+    [] -> Nothing
+    found -> Just { moduleName, text: "import " <> moduleName <> " (" <> String.joinWith ", " (map _.name found) <> ")" }
+
+-- | The libraries generated code with these tokens may use.
+librariesFor :: Set String -> Array Candidate
+librariesFor tokens =
+  [ Qualified "Data.Array" "Array"
+  , Names "Data.Either" [ { tokens: [ "Either", "Left", "Right" ], name: "Either(..)" } ]
+  , Names "Data.Function.Uncurried" [ named "mkFn3", named "runFn3", named "runFn4" ]
+  , Names "Data.Int64" [ named "Int64" ]
+  , Names "Data.Map" [ named "Map" ]
+  , Qualified "Data.Map" "Map"
+  , Names "Data.Maybe" [ { tokens: [ "Maybe", "Just", "Nothing" ], name: "Maybe(..)" } ]
+  , Names "Data.Newtype" [ { tokens: [ "Newtype" ], name: "class Newtype" }, named "un" ]
+  , Names "Data.Variant" [ named "Variant" ]
+  , Qualified "Data.Variant" "Variant"
+  , Names "Effect" [ named "Effect" ]
+  , Names "Type.Proxy" [ { tokens: [ "Proxy" ], name: "Proxy(..)" } ]
+  , Names "Yoga.Protobuf.Bytes" [ named "Bytes" ]
+  , Qualified "Yoga.Protobuf.Bytes" "Bytes"
+  , Names "Yoga.Protobuf.Codec" [ named "Codec", named "codec" ]
+  , Names "Yoga.Protobuf.Decode" [ named "Entry", named "Reader", named "decodeMessage", named "mapFromEntries", named "packedInt32" ]
+  , Qualified "Yoga.Protobuf.Decode" "Decode"
+  , Names "Yoga.Protobuf.Error" [ decodeError, named "failure" ]
+  , Qualified "Yoga.Protobuf.Fields" "Fields"
+  , Qualified "Yoga.Protobuf.Repeated" "Repeated"
+  , Names "Yoga.Protobuf.Unsigned" [ { tokens: [ "UInt32" ], name: "UInt32(..)" }, { tokens: [ "UInt64" ], name: "UInt64(..)" } ]
+  , Qualified "Yoga.Protobuf.Wire" "Wire"
+  , Names "Yoga.Protobuf.Writer" [ named "Writer", named "encodeWith" ]
+  , Qualified "Yoga.Protobuf.Writer" "Writer"
+  ]
+  where
+  named name = { tokens: [ name ], name }
+  -- `DecodeError` is in every decoder's type, its constructors only where a decoder makes one.
+  decodeError
+    | Array.any (\constructor -> Set.member constructor tokens) [ "InvalidUtf8", "MalformedVarint", "Truncated" ] = { tokens: [ "DecodeError" ], name: "DecodeError(..)" }
+    | otherwise = named "DecodeError"
 
 -- | The names in the code: runs of letters, digits, `_`, `'` and `.`.
 tokensOf :: String -> Set String

@@ -7,9 +7,11 @@ module Yoga.Protobuf.Plugin.Main
 import Prelude
 
 import Effect (Effect)
+
 import Yoga.Protobuf.Plugin.Generate (run)
 import Yoga.Protobuf.Plugin.Stdio as Stdio
 
+-- | Answers the one request protoc sends.
 main :: Effect Unit
 main = do
   request <- Stdio.readAll

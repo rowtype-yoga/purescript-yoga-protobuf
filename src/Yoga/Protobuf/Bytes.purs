@@ -22,6 +22,7 @@ foreign import eqImpl :: Fn2 Bytes Bytes Boolean
 instance Show Bytes where
   show bytes = "(fromArray " <> show (toArray bytes) <> ")"
 
+-- | How many bytes there are.
 length :: Bytes -> Int
 length bytes = lengthImpl bytes
 
@@ -33,11 +34,13 @@ fromArray numbers = fromArrayImpl numbers
 
 foreign import fromArrayImpl :: Array Int -> Bytes
 
+-- | The bytes as numbers between 0 and 255.
 toArray :: Bytes -> Array Int
 toArray bytes = toArrayImpl bytes
 
 foreign import toArrayImpl :: Bytes -> Array Int
 
+-- | No bytes: the default of a `bytes` field.
 empty :: Bytes
 empty = emptyImpl
 
