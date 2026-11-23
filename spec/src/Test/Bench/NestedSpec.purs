@@ -1,20 +1,18 @@
--- | How the hand-written `bench.Msg` decoder handles messages, good and broken.
+-- | How the generated `bench.Msg` decoder handles messages, good and broken.
 module Test.Bench.NestedSpec where
 
 import Prelude
 
-import Bench.Nested (Msg, decodeMsg, encodeMsg)
 import Bench.Samples as Samples
 import Data.Array as Array
 import Data.Either (Either(..))
 import Data.Foldable (for_)
 import Data.Int64 as Int64
-import Data.Map as Map
-import Data.Maybe (Maybe(..))
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual)
 import Yoga.Protobuf.Bytes as Bytes
 import Yoga.Protobuf.Error (DecodeError(..))
+import Yoga.Protobuf.Generated.Bench (decodeMsg, defaultMsg, encodeMsg)
 
 spec :: Spec Unit
 spec = describe "bench.Msg" do
@@ -69,16 +67,3 @@ spec = describe "bench.Msg" do
       decodeMsg (fromArray [ 0x39, 0x00, 0x00 ]) `shouldEqual` Left (Truncated 1)
   where
   fromArray = Bytes.fromArray
-
-defaultMsg :: Msg
-defaultMsg =
-  { id: 0
-  , big: zero
-  , name: ""
-  , nums: []
-  , inner: Nothing
-  , tags: Map.empty
-  , score: 0.0
-  , ok: false
-  , labels: []
-  }

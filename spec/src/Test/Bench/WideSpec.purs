@@ -3,18 +3,18 @@ module Test.Bench.WideSpec where
 
 import Prelude
 
-import Bench.Wide (decodeWide, encodeWide)
-import Bench.Wide as Wide
+import Bench.Samples as Samples
 import Data.Either (Either(..))
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Yoga.Protobuf.Bytes as Bytes
 import Yoga.Protobuf.Error (DecodeError(..))
+import Yoga.Protobuf.Generated.Bench (decodeWide, encodeWide)
 
 spec :: Spec Unit
 spec = describe "bench.Wide" do
   it "decodes what it encodes" do
-    decodeWide (encodeWide Wide.sample) `shouldEqual` Right Wide.sample
+    decodeWide (encodeWide Samples.wide) `shouldEqual` Right Samples.wide
   it "lets the last value of a field win" do
     map _.f1 (decodeWide (Bytes.fromArray [ 0x08, 0x01, 0x08, 0x02 ])) `shouldEqual` Right 2
   it "skips a field whose wire type isn't the one the message has for it" do

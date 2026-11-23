@@ -1,18 +1,14 @@
 -- | Encodes and decodes each sample many times and prints one line per measurement:
 -- | `RESULT yoga-protobuf <message> <encode|decode> <ns/op> <allocs/op>`.
 -- |
--- | Before measuring, it checks that the hand-written codecs read the bytes protoc-gen-go wrote
+-- | Before measuring, it checks that the generated codecs read the bytes protoc-gen-go wrote
 -- | for the samples and write exactly those bytes back.
 module Bench.Main where
 
 import Prelude
 
 import Bench.Fixtures (Writer(..), readFixture)
-import Bench.Nested (decodeMsg, encodeMsg)
-import Bench.RepeatedNested (decodeRepeatedNested, encodeRepeatedNested)
 import Bench.Samples as Samples
-import Bench.Wide (decodeWide, encodeWide)
-import Bench.Wide as Wide
 import Data.Array as Array
 import Data.Either (Either(..))
 import Data.Int (floor, toNumber)
@@ -24,12 +20,13 @@ import Partial.Unsafe (unsafePartial)
 import Yoga.Protobuf.Bytes (Bytes)
 import Yoga.Protobuf.Bytes as Bytes
 import Yoga.Protobuf.Error (DecodeError)
+import Yoga.Protobuf.Generated.Bench (decodeMsg, decodeRepeatedNested, decodeWide, encodeMsg, encodeRepeatedNested, encodeWide)
 
 main :: Effect Unit
 main = do
   check "nested" (decodeMsg >>> map encodeMsg) Samples.nested encodeMsg
   check "repeated-nested" (decodeRepeatedNested >>> map encodeRepeatedNested) Samples.repeatedNested encodeRepeatedNested
-  check "wide" (decodeWide >>> map encodeWide) Wide.sample encodeWide
+  check "wide" (decodeWide >>> map encodeWide) Samples.wide encodeWide
   let nestedSamples = [ Samples.nested ]
   let nested = encodeMsg Samples.nested
   measure "nested" "encode" 200000 do
@@ -50,8 +47,8 @@ main = do
     case decodeRepeatedNested input of
       Right message -> sink (Array.length message.items)
       Left _ -> sink (-1)
-  let wideSamples = [ Wide.sample ]
-  let wide = encodeWide Wide.sample
+  let wideSamples = [ Samples.wide ]
+  let wide = encodeWide Samples.wide
   measure "wide" "encode" 200000 do
     sample <- pick wideSamples
     sink (Bytes.length (encodeWide sample))

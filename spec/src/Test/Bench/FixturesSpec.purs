@@ -1,18 +1,15 @@
--- | The hand-written codecs against the bytes other implementations wrote for the samples.
+-- | The generated codecs against the bytes other implementations wrote for the samples.
 module Test.Bench.FixturesSpec where
 
 import Prelude
 
 import Bench.Fixtures (Writer(..), readFixture)
-import Bench.Nested (decodeMsg, encodeMsg)
-import Bench.RepeatedNested (decodeRepeatedNested, encodeRepeatedNested)
 import Bench.Samples as Samples
-import Bench.Wide (decodeWide, encodeWide)
-import Bench.Wide as Wide
 import Data.Either (Either(..))
 import Effect.Class (liftEffect)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
+import Yoga.Protobuf.Generated.Bench (decodeMsg, decodeRepeatedNested, decodeWide, encodeMsg, encodeRepeatedNested, encodeWide)
 
 spec :: Spec Unit
 spec = describe "the samples' bytes from other implementations" do
@@ -41,10 +38,10 @@ spec = describe "the samples' bytes from other implementations" do
   describe "Wide" do
     it "decodes protoc-gen-go's bytes to the sample" do
       bytes <- readFixture ProtocGenGo "wide" # liftEffect
-      decodeWide bytes `shouldEqual` Right Wide.sample
+      decodeWide bytes `shouldEqual` Right Samples.wide
     it "decodes protobuf-es's bytes to the sample" do
       bytes <- readFixture ProtobufEs "wide" # liftEffect
-      decodeWide bytes `shouldEqual` Right Wide.sample
+      decodeWide bytes `shouldEqual` Right Samples.wide
     it "encodes the sample to protoc-gen-go's bytes" do
       bytes <- readFixture ProtocGenGo "wide" # liftEffect
-      encodeWide Wide.sample `shouldEqual` bytes
+      encodeWide Samples.wide `shouldEqual` bytes
