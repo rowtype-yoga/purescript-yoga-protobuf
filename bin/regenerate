@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Regenerates every generated module in the repository with a plugin (the native one unless
+# PLUGIN says otherwise), then checks that the plugin's own descriptor modules came out the same:
+# the generator compiled from its own output writes that output again.
+#
+#   bin/regenerate
+#   PLUGIN=bin/protoc-gen-purescript-bun bin/regenerate
+set -euo pipefail
+cd "$(dirname "$0")/.."
+plugin=${PLUGIN:-bin/protoc-gen-purescript}
+generate() { protoc --plugin=protoc-gen-purescript="$plugin" "$@"; }
+
+before=$(mktemp -d)
+cp -R plugin/src/Yoga/Protobuf/Plugin/Google "$before/"
+
+generate --purescript_out=module_prefix=Yoga.Protobuf.Plugin:plugin/src -I plugin/proto \
+  google/protobuf/descriptor.proto google/protobuf/compiler/plugin.proto
+generate --purescript_out=bench/src -I bench/proto bench.proto
+generate --purescript_out=spec/src -I spec/proto features.proto imported.proto
+
+if diff -r "$before/Google" plugin/src/Yoga/Protobuf/Plugin/Google >/dev/null; then
+  echo "fixpoint: the plugin's descriptor modules are unchanged"
+else
+  echo "the plugin's descriptor modules changed; rebuild the plugin and run this again" >&2
+  exit 1
+fi
