@@ -1,7 +1,6 @@
 package ffi
 
 import (
-	"os"
 	"runtime"
 	"time"
 )
@@ -17,14 +16,6 @@ func Allocations() float64 {
 }
 
 var Backend = "go"
-
-func ReadFixture(name string) []byte {
-	data, err := os.ReadFile("bench/fixtures/" + name + ".bin")
-	if err != nil {
-		panic(err)
-	}
-	return data
-}
 
 //go:noinline
 func Opaque[A any](value A) A { return value }

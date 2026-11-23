@@ -7,6 +7,7 @@ module Bench.Main where
 
 import Prelude
 
+import Bench.Fixtures (Writer(..), readFixture)
 import Bench.Nested (decodeMsg, encodeMsg)
 import Bench.RepeatedNested (decodeRepeatedNested, encodeRepeatedNested)
 import Bench.Samples as Samples
@@ -64,7 +65,7 @@ main = do
 -- | encodes back to the same bytes, and whether encoding the sample gives those bytes.
 check :: forall a. String -> (Bytes -> Either DecodeError Bytes) -> a -> (a -> Bytes) -> Effect Unit
 check name roundTrip sample encode = do
-  expected <- readFixture name
+  expected <- readFixture ProtocGenGo name
   log ("CHECK " <> name <> " " <> verdict expected)
   where
   verdict expected = case roundTrip expected of
@@ -95,8 +96,6 @@ foreign import now :: Effect Number
 foreign import allocations :: Effect Number
 
 foreign import backend :: String
-
-foreign import readFixture :: String -> Effect Bytes
 
 -- | The only sample, but the optimizer can't tell which one it is, so a loop can't skip the
 -- | work. Only an `Int` goes through `opaque`: a record would go through Go as an `any`.

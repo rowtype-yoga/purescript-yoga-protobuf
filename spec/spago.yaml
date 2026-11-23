@@ -1,0 +1,17 @@
+package:
+  name: yoga-protobuf-test
+  description: The specs, as a program, so that they run with Bun and with Go
+  dependencies:
+    - aff
+    - arrays
+    - effect
+    - either
+    - foldable-traversable
+    - int64
+    - maybe
+    - ordered-collections
+    - prelude
+    - spec
+    - tuples
+    - yoga-protobuf
+    - yoga-protobuf-bench

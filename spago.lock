@@ -5,25 +5,46 @@
         "path": "./",
         "core": {
           "dependencies": [
-            "arrays",
-            "effect",
-            "either",
-            "foldable-traversable",
-            "functions",
-            "int64",
-            "integers",
-            "maybe",
-            "newtype",
-            "ordered-collections",
-            "partial",
-            "prelude"
+            {
+              "arrays": ">=7.3.1 <8.0.0"
+            },
+            {
+              "effect": ">=4.0.1 <5.0.0"
+            },
+            {
+              "either": ">=6.1.1 <7.0.0"
+            },
+            {
+              "foldable-traversable": ">=6.0.1 <7.0.0"
+            },
+            {
+              "functions": ">=6.0.1 <7.0.0"
+            },
+            {
+              "int64": ">=3.0.0 <4.0.0"
+            },
+            {
+              "integers": ">=6.0.2 <7.0.0"
+            },
+            {
+              "maybe": ">=6.0.1 <7.0.0"
+            },
+            {
+              "newtype": ">=5.0.1 <6.0.0"
+            },
+            {
+              "ordered-collections": ">=3.3.0 <4.0.0"
+            },
+            {
+              "partial": ">=4.0.1 <5.0.0"
+            },
+            {
+              "prelude": ">=6.0.3 <7.0.0"
+            }
           ]
         },
         "test": {
-          "dependencies": [
-            "aff",
-            "spec"
-          ]
+          "dependencies": []
         }
       },
       "yoga-protobuf-bench": {
@@ -46,10 +67,30 @@
           ]
         },
         "test": {
+          "dependencies": []
+        }
+      },
+      "yoga-protobuf-test": {
+        "path": "spec",
+        "core": {
           "dependencies": [
             "aff",
-            "spec"
+            "arrays",
+            "effect",
+            "either",
+            "foldable-traversable",
+            "int64",
+            "maybe",
+            "ordered-collections",
+            "prelude",
+            "spec",
+            "tuples",
+            "yoga-protobuf",
+            "yoga-protobuf-bench"
           ]
+        },
+        "test": {
+          "dependencies": []
         }
       }
     },
@@ -727,6 +768,37 @@
     "extra_packages": {}
   },
   "packages": {
+    "aff": {
+      "type": "registry",
+      "version": "8.0.0",
+      "integrity": "sha256-9BRIrSdRoYybfiUmBqgKJ66cPqxYHb277bVWQMn/9sg=",
+      "dependencies": [
+        "control",
+        "datetime",
+        "effect",
+        "either",
+        "exceptions",
+        "functions",
+        "newtype",
+        "parallel",
+        "partial",
+        "prelude",
+        "st",
+        "tailrec",
+        "transformers",
+        "unsafe-coerce"
+      ]
+    },
+    "ansi": {
+      "type": "registry",
+      "version": "7.0.0",
+      "integrity": "sha256-tOUaXJFzPSfBVAqLI8hc+Tz2M1rg16cXqyHaK/3SmFg=",
+      "dependencies": [
+        "foldable-traversable",
+        "lists",
+        "prelude"
+      ]
+    },
     "arrays": {
       "type": "registry",
       "version": "7.3.1",
@@ -748,6 +820,20 @@
         "unsafe-coerce"
       ]
     },
+    "avar": {
+      "type": "registry",
+      "version": "5.0.1",
+      "integrity": "sha256-8V4SxF4TIWZ9Ik1P4lPzIRUAZeFBe8w5WA2VcCEKsIk=",
+      "dependencies": [
+        "aff",
+        "effect",
+        "either",
+        "exceptions",
+        "functions",
+        "maybe",
+        "prelude"
+      ]
+    },
     "bifunctors": {
       "type": "registry",
       "version": "6.1.1",
@@ -758,6 +844,20 @@
         "newtype",
         "prelude",
         "tuples"
+      ]
+    },
+    "catenable-lists": {
+      "type": "registry",
+      "version": "7.0.1",
+      "integrity": "sha256-l/VXBYvrt87p/NtUjFG7KUc2Ajns2GbBlMe/v2sYq1o=",
+      "dependencies": [
+        "control",
+        "foldable-traversable",
+        "lists",
+        "maybe",
+        "prelude",
+        "tuples",
+        "unfoldable"
       ]
     },
     "console": {
@@ -798,6 +898,29 @@
       "dependencies": [
         "newtype",
         "prelude"
+      ]
+    },
+    "datetime": {
+      "type": "registry",
+      "version": "6.1.1",
+      "integrity": "sha256-lUN7Y1DaYEz8xsnX3vTNHiKPklC268LsW2SX6UoVxHE=",
+      "dependencies": [
+        "bifunctors",
+        "control",
+        "either",
+        "enums",
+        "foldable-traversable",
+        "functions",
+        "gen",
+        "integers",
+        "lists",
+        "maybe",
+        "newtype",
+        "numbers",
+        "ordered-collections",
+        "partial",
+        "prelude",
+        "tuples"
       ]
     },
     "distributive": {
@@ -898,6 +1021,39 @@
         "prelude",
         "strings",
         "transformers",
+        "unsafe-coerce"
+      ]
+    },
+    "fork": {
+      "type": "registry",
+      "version": "6.0.0",
+      "integrity": "sha256-0keBVeZZg1eCZEy/En1CohVW829gQUqKtqBNIRa93/A=",
+      "dependencies": [
+        "aff",
+        "prelude",
+        "transformers"
+      ]
+    },
+    "free": {
+      "type": "registry",
+      "version": "7.2.0",
+      "integrity": "sha256-krd1dX0v1rRvjD5TOizF0TI3FZwAYp39AO1oTLcVns0=",
+      "dependencies": [
+        "catenable-lists",
+        "control",
+        "distributive",
+        "either",
+        "exists",
+        "foldable-traversable",
+        "invariant",
+        "lazy",
+        "maybe",
+        "newtype",
+        "prelude",
+        "safe-coerce",
+        "tailrec",
+        "transformers",
+        "tuples",
         "unsafe-coerce"
       ]
     },
@@ -1033,6 +1189,23 @@
         "prelude"
       ]
     },
+    "mmorph": {
+      "type": "registry",
+      "version": "7.0.0",
+      "integrity": "sha256-Cfltaq+tfYjuSoSBN/b8cSQZbvZTqIRs6ebQewbIkGs=",
+      "dependencies": [
+        "bifunctors",
+        "either",
+        "free",
+        "functors",
+        "identity",
+        "maybe",
+        "newtype",
+        "prelude",
+        "transformers",
+        "tuples"
+      ]
+    },
     "newtype": {
       "type": "registry",
       "version": "5.0.1",
@@ -1053,6 +1226,16 @@
         "prelude",
         "tuples",
         "unfoldable"
+      ]
+    },
+    "now": {
+      "type": "registry",
+      "version": "6.0.0",
+      "integrity": "sha256-mTyG4s8tps3XIf0jjV/lME2/QlwMzrQly2wqfSSUM3o=",
+      "dependencies": [
+        "datetime",
+        "effect",
+        "prelude"
       ]
     },
     "nullable": {
@@ -1105,11 +1288,50 @@
         "prelude"
       ]
     },
+    "parallel": {
+      "type": "registry",
+      "version": "7.0.1",
+      "integrity": "sha256-jRaSRcLvz6a817/6dPLXDP50Q6ATG2h190ra1kGhbZs=",
+      "dependencies": [
+        "control",
+        "effect",
+        "either",
+        "foldable-traversable",
+        "functors",
+        "maybe",
+        "newtype",
+        "prelude",
+        "profunctor",
+        "refs",
+        "transformers"
+      ]
+    },
     "partial": {
       "type": "registry",
       "version": "4.0.1",
       "integrity": "sha256-3dTok9eSKSelG5Ha5k7rorwFAIFbSYHkmDXbGXGP5eM=",
       "dependencies": []
+    },
+    "pipes": {
+      "type": "registry",
+      "version": "8.0.0",
+      "integrity": "sha256-dtUNpG8BGVr7pu6mQZyAnUAftUHgNS7f0QH3Kw5UTpQ=",
+      "dependencies": [
+        "aff",
+        "control",
+        "effect",
+        "either",
+        "foldable-traversable",
+        "identity",
+        "lists",
+        "maybe",
+        "mmorph",
+        "newtype",
+        "prelude",
+        "tailrec",
+        "transformers",
+        "tuples"
+      ]
     },
     "prelude": {
       "type": "registry",
@@ -1147,6 +1369,40 @@
       "integrity": "sha256-/VIgkB3fRq68tyOyNUHSHa0LepCHkHpaHanppsdLPN8=",
       "dependencies": [
         "unsafe-coerce"
+      ]
+    },
+    "spec": {
+      "type": "registry",
+      "version": "8.1.2",
+      "integrity": "sha256-klPPJ6lBQI1CGOAdLJ+ZoGRt8XZippkTKjn53BrSkL0=",
+      "dependencies": [
+        "aff",
+        "ansi",
+        "arrays",
+        "avar",
+        "bifunctors",
+        "control",
+        "datetime",
+        "effect",
+        "either",
+        "exceptions",
+        "foldable-traversable",
+        "fork",
+        "identity",
+        "integers",
+        "lists",
+        "maybe",
+        "newtype",
+        "now",
+        "ordered-collections",
+        "parallel",
+        "pipes",
+        "prelude",
+        "refs",
+        "strings",
+        "tailrec",
+        "transformers",
+        "tuples"
       ]
     },
     "st": {
