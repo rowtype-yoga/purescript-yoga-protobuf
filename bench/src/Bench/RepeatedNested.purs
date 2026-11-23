@@ -9,9 +9,10 @@ import Prelude
 
 import Bench.Nested (Inner, innerFrom, writeInner)
 import Data.Either (Either(..))
+import Data.Function.Uncurried (mkFn3, runFn3)
 import Effect (Effect)
 import Yoga.Protobuf.Bytes (Bytes)
-import Yoga.Protobuf.Decode (decodeMessage)
+import Yoga.Protobuf.Decode (Reader, decodeMessage)
 import Yoga.Protobuf.Error (DecodeError, failure)
 import Yoga.Protobuf.Repeated as Repeated
 import Yoga.Protobuf.Wire as Wire
@@ -26,26 +27,27 @@ decodeRepeatedNested input = decodeMessage repeatedNestedFrom input
 encodeRepeatedNested :: RepeatedNested -> Bytes
 encodeRepeatedNested message = encodeWith writeRepeatedNested message
 
-repeatedNestedFrom :: Bytes -> Int -> Int -> Either DecodeError RepeatedNested
-repeatedNestedFrom input start end = loop start Repeated.empty
-  where
-  loop position items
-    | position >= end = Right { items: Repeated.freeze items }
-    | otherwise = do
-        let afterTag = Wire.varintEnd input position end
-        if afterTag < 0 then Left (failure afterTag position)
-        else case Wire.varint32 input position of
-          10 -> do
-            let payload = Wire.varintEnd input afterTag end
-            let next = Wire.delimitedEnd input afterTag payload end
-            if next < 0 then Left (failure next afterTag)
-            else case innerFrom input payload next of
-              Left error -> Left error
-              Right value -> loop next (Repeated.snoc items value)
-          tag -> do
-            let next = Wire.skip input tag afterTag end
-            if next < 0 then Left (failure next afterTag)
-            else loop next items
+repeatedNestedFrom :: Reader RepeatedNested
+repeatedNestedFrom = mkFn3 \input start end -> do
+  let
+    loop position items
+      | position >= end = Right { items: Repeated.freeze items }
+      | otherwise = do
+          let afterTag = Wire.varintEnd input position end
+          if afterTag < 0 then Left (failure afterTag position)
+          else case Wire.varint32 input position of
+            10 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else case runFn3 innerFrom input payload next of
+                Left error -> Left error
+                Right value -> loop next (Repeated.snoc items value)
+            tag -> do
+              let next = Wire.skip input tag afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next items
+  loop start Repeated.empty
 
 writeRepeatedNested :: Writer -> RepeatedNested -> Effect Unit
 writeRepeatedNested writer message =

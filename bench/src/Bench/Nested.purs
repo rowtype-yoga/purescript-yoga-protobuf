@@ -14,12 +14,13 @@ import Prelude
 
 import Data.Array as Array
 import Data.Either (Either(..))
+import Data.Function.Uncurried (mkFn3, runFn3)
 import Data.Int64 (Int64)
 import Data.Map (Map)
 import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Yoga.Protobuf.Bytes (Bytes)
-import Yoga.Protobuf.Decode (Entry, decodeMessage, mapFromEntries, packedInt32)
+import Yoga.Protobuf.Decode (Entry, Reader, decodeMessage, mapFromEntries, packedInt32)
 import Yoga.Protobuf.Error (DecodeError(..), failure)
 import Yoga.Protobuf.Repeated as Repeated
 import Yoga.Protobuf.Wire as Wire
@@ -52,140 +53,143 @@ decodeMsg input = decodeMessage msgFrom input
 encodeMsg :: Msg -> Bytes
 encodeMsg msg = encodeWith writeMsg msg
 
-innerFrom :: Bytes -> Int -> Int -> Either DecodeError Inner
-innerFrom input start end = loop start 0 ""
-  where
-  loop position a b
-    | position >= end = Right { a, b }
-    | otherwise = do
-        let afterTag = Wire.varintEnd input position end
-        if afterTag < 0 then Left (failure afterTag position)
-        else case Wire.varint32 input position of
-          8 -> do
-            let next = Wire.varintEnd input afterTag end
-            if next < 0 then Left (failure next afterTag)
-            else loop next (Wire.varint32 input afterTag) b
-          18 -> do
-            let payload = Wire.varintEnd input afterTag end
-            let next = Wire.delimitedEnd input afterTag payload end
-            if next < 0 then Left (failure next afterTag)
-            else do
-              let text = Wire.string input payload next
-              if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
-              else loop next a text
-          tag -> do
-            let next = Wire.skip input tag afterTag end
-            if next < 0 then Left (failure next afterTag)
-            else loop next a b
+innerFrom :: Reader Inner
+innerFrom = mkFn3 \input start end -> do
+  let
+    loop position a b
+      | position >= end = Right { a, b }
+      | otherwise = do
+          let afterTag = Wire.varintEnd input position end
+          if afterTag < 0 then Left (failure afterTag position)
+          else case Wire.varint32 input position of
+            8 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next (Wire.varint32 input afterTag) b
+            18 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else do
+                let text = Wire.string input payload next
+                if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
+                else loop next a text
+            tag -> do
+              let next = Wire.skip input tag afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next a b
+  loop start 0 ""
 
-msgFrom :: Bytes -> Int -> Int -> Either DecodeError Msg
-msgFrom input start end = loop start 0 zero "" Repeated.empty Nothing Repeated.empty 0.0 false Repeated.empty
-  where
-  loop position id big name nums inner tags score ok labels
-    | position >= end = Right
-        { id
-        , big
-        , name
-        , nums: Repeated.freeze nums
-        , inner
-        , tags: mapFromEntries tags
-        , score
-        , ok
-        , labels: Repeated.freeze labels
-        }
-    | otherwise = do
-        let afterTag = Wire.varintEnd input position end
-        if afterTag < 0 then Left (failure afterTag position)
-        else case Wire.varint32 input position of
-          8 -> do
-            let next = Wire.varintEnd input afterTag end
-            if next < 0 then Left (failure next afterTag)
-            else loop next (Wire.varint32 input afterTag) big name nums inner tags score ok labels
-          16 -> do
-            let next = Wire.varintEnd input afterTag end
-            if next < 0 then Left (failure next afterTag)
-            else loop next id (Wire.varint64 input afterTag) name nums inner tags score ok labels
-          26 -> do
-            let payload = Wire.varintEnd input afterTag end
-            let next = Wire.delimitedEnd input afterTag payload end
-            if next < 0 then Left (failure next afterTag)
-            else do
-              let text = Wire.string input payload next
-              if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
-              else loop next id big text nums inner tags score ok labels
-          32 -> do
-            let next = Wire.varintEnd input afterTag end
-            if next < 0 then Left (failure next afterTag)
-            else loop next id big name (Repeated.snoc nums (Wire.varint32 input afterTag)) inner tags score ok labels
-          34 -> do
-            let payload = Wire.varintEnd input afterTag end
-            let next = Wire.delimitedEnd input afterTag payload end
-            if next < 0 then Left (failure next afterTag)
-            else if not (Wire.packedVarintsValid input payload next) then Left (MalformedVarint payload)
-            else loop next id big name (packedInt32 input payload next nums) inner tags score ok labels
-          42 -> do
-            let payload = Wire.varintEnd input afterTag end
-            let next = Wire.delimitedEnd input afterTag payload end
-            if next < 0 then Left (failure next afterTag)
-            else case innerFrom input payload next of
-              Left error -> Left error
-              Right value -> loop next id big name nums (Just value) tags score ok labels
-          50 -> do
-            let payload = Wire.varintEnd input afterTag end
-            let next = Wire.delimitedEnd input afterTag payload end
-            if next < 0 then Left (failure next afterTag)
-            else case tagsEntryFrom input payload next of
-              Left error -> Left error
-              Right entry -> loop next id big name nums inner (Repeated.snoc tags entry) score ok labels
-          57 -> do
-            let next = Wire.fixedEnd afterTag 8 end
-            if next < 0 then Left (failure next afterTag)
-            else loop next id big name nums inner tags (Wire.double input afterTag) ok labels
-          64 -> do
-            let next = Wire.varintEnd input afterTag end
-            if next < 0 then Left (failure next afterTag)
-            else loop next id big name nums inner tags score (Wire.bool input afterTag) labels
-          74 -> do
-            let payload = Wire.varintEnd input afterTag end
-            let next = Wire.delimitedEnd input afterTag payload end
-            if next < 0 then Left (failure next afterTag)
-            else do
-              let text = Wire.string input payload next
-              if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
-              else loop next id big name nums inner tags score ok (Repeated.snoc labels text)
-          tag -> do
-            let next = Wire.skip input tag afterTag end
-            if next < 0 then Left (failure next afterTag)
-            else loop next id big name nums inner tags score ok labels
+msgFrom :: Reader Msg
+msgFrom = mkFn3 \input start end -> do
+  let
+    loop position id big name nums inner tags score ok labels
+      | position >= end = Right
+          { id
+          , big
+          , name
+          , nums: Repeated.freeze nums
+          , inner
+          , tags: mapFromEntries tags
+          , score
+          , ok
+          , labels: Repeated.freeze labels
+          }
+      | otherwise = do
+          let afterTag = Wire.varintEnd input position end
+          if afterTag < 0 then Left (failure afterTag position)
+          else case Wire.varint32 input position of
+            8 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next (Wire.varint32 input afterTag) big name nums inner tags score ok labels
+            16 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next id (Wire.varint64 input afterTag) name nums inner tags score ok labels
+            26 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else do
+                let text = Wire.string input payload next
+                if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
+                else loop next id big text nums inner tags score ok labels
+            32 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next id big name (Repeated.snoc nums (Wire.varint32 input afterTag)) inner tags score ok labels
+            34 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else if not (Wire.packedVarintsValid input payload next) then Left (MalformedVarint payload)
+              else loop next id big name (packedInt32 input payload next nums) inner tags score ok labels
+            42 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else case runFn3 innerFrom input payload next of
+                Left error -> Left error
+                Right value -> loop next id big name nums (Just value) tags score ok labels
+            50 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else case runFn3 tagsEntryFrom input payload next of
+                Left error -> Left error
+                Right entry -> loop next id big name nums inner (Repeated.snoc tags entry) score ok labels
+            57 -> do
+              let next = Wire.fixedEnd afterTag 8 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next id big name nums inner tags (Wire.double input afterTag) ok labels
+            64 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next id big name nums inner tags score (Wire.bool input afterTag) labels
+            74 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else do
+                let text = Wire.string input payload next
+                if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
+                else loop next id big name nums inner tags score ok (Repeated.snoc labels text)
+            tag -> do
+              let next = Wire.skip input tag afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next id big name nums inner tags score ok labels
+  loop start 0 zero "" Repeated.empty Nothing Repeated.empty 0.0 false Repeated.empty
 
 -- | The `map<string, int32>` entry between `start` and `end`.
 type TagsEntry = Entry String Int
 
-tagsEntryFrom :: Bytes -> Int -> Int -> Either DecodeError TagsEntry
-tagsEntryFrom input start end = loop start "" 0
-  where
-  loop position key value
-    | position >= end = Right { key, value }
-    | otherwise = do
-        let afterTag = Wire.varintEnd input position end
-        if afterTag < 0 then Left (failure afterTag position)
-        else case Wire.varint32 input position of
-          10 -> do
-            let payload = Wire.varintEnd input afterTag end
-            let next = Wire.delimitedEnd input afterTag payload end
-            if next < 0 then Left (failure next afterTag)
-            else do
-              let text = Wire.string input payload next
-              if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
-              else loop next text value
-          16 -> do
-            let next = Wire.varintEnd input afterTag end
-            if next < 0 then Left (failure next afterTag)
-            else loop next key (Wire.varint32 input afterTag)
-          tag -> do
-            let next = Wire.skip input tag afterTag end
-            if next < 0 then Left (failure next afterTag)
-            else loop next key value
+tagsEntryFrom :: Reader TagsEntry
+tagsEntryFrom = mkFn3 \input start end -> do
+  let
+    loop position key value
+      | position >= end = Right { key, value }
+      | otherwise = do
+          let afterTag = Wire.varintEnd input position end
+          if afterTag < 0 then Left (failure afterTag position)
+          else case Wire.varint32 input position of
+            10 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else do
+                let text = Wire.string input payload next
+                if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
+                else loop next text value
+            16 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next key (Wire.varint32 input afterTag)
+            tag -> do
+              let next = Wire.skip input tag afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next key value
+  loop start "" 0
 
 writeInner :: Writer -> Inner -> Effect Unit
 writeInner writer inner = do

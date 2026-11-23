@@ -132,11 +132,12 @@ module Bench.Wide
 import Prelude
 
 import Data.Either (Either(..))
+import Data.Function.Uncurried (mkFn3)
 import Data.Int64 (Int64)
 import Data.Int64 as Int64
 import Effect (Effect)
 import Yoga.Protobuf.Bytes (Bytes)
-import Yoga.Protobuf.Decode (decodeMessage)
+import Yoga.Protobuf.Decode (Reader, decodeMessage)
 import Yoga.Protobuf.Error (DecodeError(..), failure)
 import Yoga.Protobuf.Wire as Wire
 import Yoga.Protobuf.Writer (Writer, encodeWith)
@@ -157,17 +158,18 @@ sample =
   { ${fields.map(({ number, name, kind }) => `${name}: ${sampleValue(number, kind)}`).join("\n  , ")}
   }
 
-wideFrom :: Bytes -> Int -> Int -> Either DecodeError Wide
-wideFrom input start end = loop start ${fields.map(({ kind }) => defaultValue[kind]).join(" ")}
-  where
-  loop position ${names.join(" ")}
-    | position >= end = Right { ${names.join(", ")} }
-    | otherwise = do
-        let afterTag = Wire.varintEnd input position end
-        let tag = Wire.varint32 input position
-        if afterTag < 0 then Left (failure afterTag position)
-        else
-${dispatch(fields, "          ")}
+wideFrom :: Reader Wide
+wideFrom = mkFn3 \\input start end -> do
+  let
+    loop position ${names.join(" ")}
+      | position >= end = Right { ${names.join(", ")} }
+      | otherwise = do
+          let afterTag = Wire.varintEnd input position end
+          let tag = Wire.varint32 input position
+          if afterTag < 0 then Left (failure afterTag position)
+          else
+${dispatch(fields, "            ")}
+  loop start ${fields.map(({ kind }) => defaultValue[kind]).join(" ")}
 
 writeWide :: Writer -> Wide -> Effect Unit
 writeWide writer wide = do
