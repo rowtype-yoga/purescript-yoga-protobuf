@@ -8,6 +8,7 @@
             "arrays",
             "effect",
             "either",
+            "foldable-traversable",
             "functions",
             "int64",
             "integers",
@@ -16,6 +17,32 @@
             "ordered-collections",
             "partial",
             "prelude"
+          ]
+        },
+        "test": {
+          "dependencies": [
+            "aff",
+            "spec"
+          ]
+        }
+      },
+      "yoga-protobuf-bench": {
+        "path": "bench",
+        "core": {
+          "dependencies": [
+            "arrays",
+            "console",
+            "effect",
+            "either",
+            "int64",
+            "integers",
+            "maybe",
+            "ordered-collections",
+            "partial",
+            "prelude",
+            "strings",
+            "tuples",
+            "yoga-protobuf"
           ]
         },
         "test": {
@@ -731,6 +758,15 @@
         "newtype",
         "prelude",
         "tuples"
+      ]
+    },
+    "console": {
+      "type": "registry",
+      "version": "6.1.1",
+      "integrity": "sha256-eaugMKE5E4/lqyt5eCWXOCWJr9UxB+X1F7EMFSm1Wdw=",
+      "dependencies": [
+        "effect",
+        "prelude"
       ]
     },
     "const": {

@@ -1,0 +1,81 @@
+syntax = "proto3";
+package bench;
+
+option go_package = "yogapb/bench/pb";
+
+message Inner {
+  int32 a = 1;
+  string b = 2;
+}
+
+// Nested: a bit of everything, 164 bytes for the benchmark's sample.
+message Msg {
+  int32 id = 1;
+  int64 big = 2;
+  string name = 3;
+  repeated int32 nums = 4;
+  Inner inner = 5;
+  map<string, int32> tags = 6;
+  double score = 7;
+  bool ok = 8;
+  repeated string labels = 9;
+}
+
+// RepeatedNested: 1000 small messages in one.
+message RepeatedNested {
+  repeated Inner items = 1;
+}
+
+// Wide: 50 fields, of which the benchmark program reads three.
+message Wide {
+  int32 f1 = 1;
+  string f2 = 2;
+  double f3 = 3;
+  int64 f4 = 4;
+  bool f5 = 5;
+  int32 f6 = 6;
+  string f7 = 7;
+  double f8 = 8;
+  int64 f9 = 9;
+  bool f10 = 10;
+  int32 f11 = 11;
+  string f12 = 12;
+  double f13 = 13;
+  int64 f14 = 14;
+  bool f15 = 15;
+  int32 f16 = 16;
+  string f17 = 17;
+  double f18 = 18;
+  int64 f19 = 19;
+  bool f20 = 20;
+  int32 f21 = 21;
+  string f22 = 22;
+  double f23 = 23;
+  int64 f24 = 24;
+  bool f25 = 25;
+  int32 f26 = 26;
+  string f27 = 27;
+  double f28 = 28;
+  int64 f29 = 29;
+  bool f30 = 30;
+  int32 f31 = 31;
+  string f32 = 32;
+  double f33 = 33;
+  int64 f34 = 34;
+  bool f35 = 35;
+  int32 f36 = 36;
+  string f37 = 37;
+  double f38 = 38;
+  int64 f39 = 39;
+  bool f40 = 40;
+  int32 f41 = 41;
+  string f42 = 42;
+  double f43 = 43;
+  int64 f44 = 44;
+  bool f45 = 45;
+  int32 f46 = 46;
+  string f47 = 47;
+  double f48 = 48;
+  int64 f49 = 49;
+  bool f50 = 50;
+}

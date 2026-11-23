@@ -1,0 +1,22 @@
+package:
+  name: yoga-protobuf-bench
+  description: Benchmarks and hand-written fixtures in the shape the generator will emit
+  dependencies:
+    - arrays
+    - console
+    - effect
+    - either
+    - int64
+    - integers
+    - maybe
+    - ordered-collections
+    - partial
+    - prelude
+    - strings
+    - tuples
+    - yoga-protobuf
+  test:
+    main: Test.Bench.Main
+    dependencies:
+      - aff
+      - spec

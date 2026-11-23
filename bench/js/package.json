@@ -1,0 +1,16 @@
+{
+  "name": "yoga-protobuf-bench-js",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "bun run generate:es && bun run generate:protobufjs",
+    "generate:es": "protoc -I ../proto --plugin=protoc-gen-es=./protoc-gen-es --es_out=gen --es_opt=target=js ../proto/bench.proto",
+    "generate:protobufjs": "bun node_modules/protobufjs-cli/bin/pbjs -t static-module -w es6 --no-verify --no-delimited --no-convert --no-comments -o gen/bench_pbjs.js ../proto/bench.proto"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "2.17.0",
+    "@bufbuild/protoc-gen-es": "2.17.0",
+    "protobufjs": "7.5.4",
+    "protobufjs-cli": "1.1.3"
+  }
+}
