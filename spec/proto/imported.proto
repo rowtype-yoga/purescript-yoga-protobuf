@@ -1,0 +1,16 @@
+syntax = "proto3";
+package imported;
+
+option go_package = "yogapb/features/pb";
+
+// Defined in another file, so that features.proto has something to import.
+enum Mood {
+  MOOD_UNSPECIFIED = 0;
+  MOOD_HAPPY = 1;
+  MOOD_GRUMPY = 2;
+}
+
+message Thing {
+  string name = 1;
+  Mood mood = 2;
+}

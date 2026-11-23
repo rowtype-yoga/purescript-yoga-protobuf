@@ -7,6 +7,7 @@ import Effect.Aff (launchAff_)
 import Test.Bench.FixturesSpec as FixturesSpec
 import Test.Bench.NestedSpec as NestedSpec
 import Test.Bench.WideSpec as WideSpec
+import Test.Features.FeaturesSpec as FeaturesSpec
 import Test.Spec.Reporter.Console (consoleReporter)
 import Test.Spec.Runner (defaultConfig, runSpec')
 import Test.Yoga.Protobuf.DecodeSpec as DecodeSpec
@@ -22,3 +23,4 @@ main = launchAff_ do
     NestedSpec.spec
     WideSpec.spec
     FixturesSpec.spec
+    FeaturesSpec.spec

@@ -1,0 +1,12 @@
+{
+  "name": "yoga-protobuf-features-fixtures",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "protoc -I ../../proto --plugin=protoc-gen-es=./protoc-gen-es --es_out=gen --es_opt=target=js features.proto imported.proto legacy.proto"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "2.17.0",
+    "@bufbuild/protoc-gen-es": "2.17.0"
+  }
+}

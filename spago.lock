@@ -124,14 +124,18 @@
             "effect",
             "either",
             "foldable-traversable",
+            "functions",
             "int64",
             "maybe",
+            "newtype",
             "ordered-collections",
             "prelude",
             "spec",
             "tuples",
+            "variant",
             "yoga-protobuf",
-            "yoga-protobuf-bench"
+            "yoga-protobuf-bench",
+            "yoga-protobuf-plugin"
           ]
         },
         "test": {
@@ -1623,6 +1627,22 @@
       "version": "6.0.1",
       "integrity": "sha256-EWQVn1FKBk8WggRQhs+5oYkj5r9BNmb2j1gDITxhH6o=",
       "dependencies": []
+    },
+    "variant": {
+      "type": "registry",
+      "version": "8.0.0",
+      "integrity": "sha256-Ydrgl8liWEwYQOWW76PdZtg3vxKpoKgsnmFyTLgZkoU=",
+      "dependencies": [
+        "control",
+        "enums",
+        "foldable-traversable",
+        "lists",
+        "maybe",
+        "partial",
+        "prelude",
+        "type-equality",
+        "unsafe-coerce"
+      ]
     }
   }
 }

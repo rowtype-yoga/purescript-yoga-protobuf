@@ -1,0 +1,24 @@
+syntax = "proto2";
+package legacy;
+
+option go_package = "yogapb/features/pb";
+
+// proto2: every field has presence, `required` fields don't.
+message Legacy {
+  required int32 id = 1;
+  optional string name = 2 [default = "nobody"];
+  repeated int32 packed_numbers = 3 [packed = true];
+  repeated int32 numbers = 4;
+  optional Legacy next = 5;
+  required Part part = 6;
+  optional Size size = 7;
+
+  message Part {
+    optional bool on = 1;
+  }
+
+  enum Size {
+    SMALL = 0;
+    LARGE = 1;
+  }
+}

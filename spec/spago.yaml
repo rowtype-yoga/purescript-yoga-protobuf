@@ -7,11 +7,15 @@ package:
     - effect
     - either
     - foldable-traversable
+    - functions
     - int64
     - maybe
+    - newtype
     - ordered-collections
     - prelude
     - spec
     - tuples
+    - variant
     - yoga-protobuf
     - yoga-protobuf-bench
+    - yoga-protobuf-plugin

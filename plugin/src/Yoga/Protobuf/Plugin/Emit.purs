@@ -500,7 +500,10 @@ writeField :: { field :: Field, into :: String, oneof :: Maybe String } -> Array
 writeField { field, oneof } = case field.shape of
   Implicit ->
     [ "when " <> isSet field.value access <> " do" ] <> indentBy 2 (writeValue field.number field.value access)
-  Required -> writeValue field.number field.value access
+  Required -> case field.value of
+    -- Its own block, so that its `mark` doesn't shadow another field's.
+    MessageValue _ -> [ "do" ] <> indentBy 2 (writeValue field.number field.value access)
+    _ -> writeValue field.number field.value access
   Optional -> present access
   InOneof -> present (access <> " >>= Variant.prj (Proxy :: _ \"" <> field.label <> "\")")
   Repeated true ->

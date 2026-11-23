@@ -1,0 +1,192 @@
+syntax = "proto3";
+package features;
+
+import "imported.proto";
+
+option go_package = "yogapb/features/pb";
+
+// Every feature of protoc-gen-purescript in one schema, for the specs.
+
+enum Colour {
+  COLOUR_UNSPECIFIED = 0;
+  COLOUR_RED = 1;
+  COLOUR_GREEN = 2;
+  COLOUR_BLUE = 3;
+}
+
+// Its values without the prefix clash with Colour's, so its constructors keep the enum's name.
+enum Light {
+  LIGHT_UNSPECIFIED = 0;
+  LIGHT_RED = 1;
+  LIGHT_AMBER = 2;
+}
+
+// Values that don't share a prefix keep their names.
+enum Direction {
+  NORTH = 0;
+  SOUTH = 1;
+  EAST_BY_NORTHEAST = 2;
+}
+
+message Scalars {
+  double a_double = 1;
+  float a_float = 2;
+  int32 an_int32 = 3;
+  int64 an_int64 = 4;
+  uint32 a_uint32 = 5;
+  uint64 a_uint64 = 6;
+  sint32 a_sint32 = 7;
+  sint64 a_sint64 = 8;
+  fixed32 a_fixed32 = 9;
+  fixed64 a_fixed64 = 10;
+  sfixed32 an_sfixed32 = 11;
+  sfixed64 an_sfixed64 = 12;
+  bool a_bool = 13;
+  string a_string = 14;
+  bytes some_bytes = 15;
+  Colour a_colour = 16;
+  Light a_light = 17;
+  Direction a_direction = 18;
+}
+
+message Optionals {
+  optional int32 maybe_int32 = 1;
+  optional string maybe_string = 2;
+  optional Colour maybe_colour = 3;
+  optional bytes maybe_bytes = 4;
+  optional double maybe_double = 5;
+  optional uint64 maybe_uint64 = 6;
+  optional bool maybe_bool = 7;
+}
+
+message Repeateds {
+  repeated double doubles = 1;
+  repeated float floats = 2;
+  repeated int32 int32s = 3;
+  repeated int64 int64s = 4;
+  repeated uint32 uint32s = 5;
+  repeated uint64 uint64s = 6;
+  repeated sint32 sint32s = 7;
+  repeated sint64 sint64s = 8;
+  repeated fixed32 fixed32s = 9;
+  repeated fixed64 fixed64s = 10;
+  repeated sfixed32 sfixed32s = 11;
+  repeated sfixed64 sfixed64s = 12;
+  repeated bool bools = 13;
+  repeated string strings = 14;
+  repeated bytes byte_strings = 15;
+  repeated Colour colours = 16;
+  repeated Scalars messages = 17;
+  repeated int32 unpacked_int32s = 18 [packed = false];
+  repeated double unpacked_doubles = 19 [packed = false];
+  repeated Colour unpacked_colours = 20 [packed = false];
+}
+
+message Maps {
+  map<string, int32> by_name = 1;
+  map<int32, Scalars> messages = 2;
+  map<uint32, Colour> colours = 3;
+  map<int64, string> by_int64 = 4;
+  map<bool, bytes> by_bool = 5;
+  map<sint32, double> by_sint32 = 6;
+  map<fixed64, imported.Thing> things = 7;
+}
+
+message Choice {
+  oneof pick {
+    int32 number = 1;
+    string text = 2;
+    Scalars scalars = 3;
+    Colour colour = 4;
+  }
+  string after = 5;
+  oneof other {
+    bool flag = 6;
+    bytes blob = 7;
+  }
+}
+
+// Refers to itself, so it's a newtype.
+message Tree {
+  string label = 1;
+  Tree left = 2;
+  repeated Tree children = 3;
+  map<string, Tree> named = 4;
+}
+
+message Outer {
+  message Inner {
+    enum Kind {
+      KIND_UNSPECIFIED = 0;
+      KIND_SMALL = 1;
+      KIND_LARGE = 2;
+    }
+    Kind kind = 1;
+    int32 value = 2;
+  }
+  Inner inner = 1;
+  repeated Inner inners = 2;
+  Inner.Kind kind = 3;
+}
+
+// Field names that are PureScript keywords or names the generated code uses itself.
+message Keywords {
+  int32 type = 1;
+  string data = 2;
+  bool input = 3;
+  int32 end = 4;
+  string module = 5;
+  int32 value = 6;
+  int32 where = 7;
+  int32 loop = 8;
+  int32 position = 9;
+}
+
+message Empty {}
+
+message Uses {
+  imported.Thing thing = 1;
+  imported.Mood mood = 2;
+  repeated imported.Thing things = 3;
+  Empty empty = 4;
+}
+
+// Enough plain fields to be decoded in two steps.
+message Wide {
+  int32 an_int32 = 1;
+  string a_string = 2;
+  double a_double = 3;
+  int64 an_int64 = 4;
+  bool a_bool = 5;
+  uint32 a_uint32 = 6;
+  sint32 a_sint32 = 7;
+  sint64 a_sint64 = 8;
+  fixed32 a_fixed32 = 9;
+  fixed64 a_fixed64 = 10;
+  sfixed32 an_sfixed32 = 11;
+  sfixed64 an_sfixed64 = 12;
+  float a_float = 13;
+  bytes some_bytes = 14;
+  Colour a_colour = 15;
+  uint64 a_uint64 = 16;
+  int32 another_int32 = 17;
+  string another_string = 18;
+  double another_double = 19;
+  int64 another_int64 = 20;
+  bool another_bool = 21;
+  string last_string = 30;
+}
+
+message Everything {
+  Scalars scalars = 1;
+  Optionals optionals = 2;
+  Repeateds repeateds = 3;
+  Maps maps = 4;
+  Choice choice = 5;
+  Tree tree = 6;
+  Outer outer = 7;
+  Keywords keywords = 8;
+  Uses uses = 9;
+  Wide wide = 10;
+  Empty empty = 11;
+}
