@@ -20,6 +20,10 @@ module Yoga.Protobuf.Fields
   , int64
   , bool
   , double
+  , float
+  , fixed32
+  , fixed64
+  , bytes
   , string
   , payloadStart
   ) where
@@ -29,6 +33,7 @@ import Prelude
 import Data.Function.Uncurried (Fn2, Fn3, Fn4, mkFn3, mkFn4, runFn2, runFn4)
 import Data.Int64 (Int64)
 import Yoga.Protobuf.Bytes (Bytes)
+import Yoga.Protobuf.Bytes as Bytes
 import Yoga.Protobuf.Wire as Wire
 
 foreign import data Fields :: Type
@@ -72,6 +77,30 @@ double :: Fn3 Bytes Fields Int Number
 double = mkFn3 \input fields number -> do
   let position = at fields number
   if position < 0 then 0.0 else Wire.double input position
+
+float :: Fn3 Bytes Fields Int Number
+float = mkFn3 \input fields number -> do
+  let position = at fields number
+  if position < 0 then 0.0 else Wire.float input position
+
+-- | `fixed32` and `sfixed32` fields, as `Int` bits.
+fixed32 :: Fn3 Bytes Fields Int Int
+fixed32 = mkFn3 \input fields number -> do
+  let position = at fields number
+  if position < 0 then 0 else Wire.fixed32 input position
+
+fixed64 :: Fn3 Bytes Fields Int Int64
+fixed64 = mkFn3 \input fields number -> do
+  let position = at fields number
+  if position < 0 then zero else Wire.fixed64 input position
+
+bytes :: Fn4 Bytes Fields Int Int Bytes
+bytes = mkFn4 \input fields number end -> do
+  let position = at fields number
+  if position < 0 then Bytes.empty
+  else do
+    let start = Wire.varintEnd input position end
+    Wire.bytes input start (Wire.delimitedEnd input position start end)
 
 -- | The text of field `number`, or `Wire.invalidUtf8` if it isn't UTF-8.
 string :: Fn4 Bytes Fields Int Int String

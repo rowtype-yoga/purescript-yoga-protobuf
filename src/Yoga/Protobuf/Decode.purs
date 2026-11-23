@@ -27,6 +27,8 @@ module Yoga.Protobuf.Decode
   , decodeMessage
   , mapFromEntries
   , packedInt32
+  , packedVarints
+  , packedFixed
   ) where
 
 import Prelude
@@ -99,12 +101,26 @@ entryAt entries index = unsafePartial (Array.unsafeIndex entries index)
 -- | Adds the varints between `start` and `end` to `values`. `Wire.packedVarintsValid` has to
 -- | have said they're whole.
 packedInt32 :: Bytes -> Int -> Int -> Repeated Int -> Repeated Int
-packedInt32 input start end values = runFn4 packedInt32Fn input start end values
+packedInt32 input start end values = Repeated.thaw (Wire.packedInt32 input start end (Repeated.freeze values))
 
-packedInt32Fn :: Fn4 Bytes Int Int (Repeated Int) (Repeated Int)
-packedInt32Fn = mkFn4 \input start end values -> do
+-- | Adds the varints between `start` and `end` to `values`, each as `read` reads it.
+-- | `Wire.packedVarintsValid` has to have said they're whole.
+packedVarints :: forall a. (Bytes -> Int -> a) -> Bytes -> Int -> Int -> Repeated a -> Repeated a
+packedVarints read input start end values = runFn4 (packedVarintsFn read) input start end values
+
+packedVarintsFn :: forall a. (Bytes -> Int -> a) -> Fn4 Bytes Int Int (Repeated a) (Repeated a)
+packedVarintsFn read = mkFn4 \input start end values -> do
   let
     fill position filled
       | position >= end = filled
-      | otherwise = fill (Wire.varintEnd input position end) (Repeated.snoc filled (Wire.varint32 input position))
-  fill start (Repeated.reserve values (Wire.varintCount input start end))
+      | otherwise = fill (Wire.varintEnd input position end) (Repeated.snoc filled (read input position))
+  fill start values
+
+-- | Adds the values of `width` bytes between `start` and `end` to `values`, each as `read`
+-- | reads it. `Wire.packedFixedValid` has to have said they're whole.
+packedFixed :: forall a. Int -> (Bytes -> Int -> a) -> Bytes -> Int -> Int -> Repeated a -> Repeated a
+packedFixed width read input start end values = fill start values
+  where
+  fill position filled
+    | position >= end = filled
+    | otherwise = fill (position + width) (Repeated.snoc filled (read input position))

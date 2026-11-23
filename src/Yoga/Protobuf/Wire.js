@@ -217,6 +217,15 @@ export const varintCountImpl = (input, start, end) => {
   return count;
 };
 
+// The empty array every decoder starts with is shared, so it's never pushed to.
+export const packedInt32Impl = (input, start, end, values) => {
+  const result = values.length === 0 ? [] : values;
+  for (let position = start; position < end; position = varintEndImpl(input, position, end)) {
+    result.push(varint32Impl(input, position));
+  }
+  return result;
+};
+
 export const packedVarintsValidImpl = (input, start, end) => {
   let run = 0;
   for (let index = start; index < end; index++) {

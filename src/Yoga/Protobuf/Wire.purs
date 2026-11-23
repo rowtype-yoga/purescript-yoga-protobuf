@@ -11,11 +11,15 @@ module Yoga.Protobuf.Wire
   , skip
   , varint32
   , varint64
+  , uint32
+  , uint64
   , bool
   , sint32
   , sint64
   , fixed32
   , fixed64
+  , unsignedFixed32
+  , unsignedFixed64
   , float
   , double
   , string
@@ -23,6 +27,8 @@ module Yoga.Protobuf.Wire
   , utf8Valid
   , bytes
   , packedVarintsValid
+  , packedFixedValid
+  , packedInt32
   , varintCount
   , zigzag32
   , zigzag64
@@ -36,6 +42,7 @@ import Data.Int.Bits (xor, zshr, (.&.))
 import Data.Int64 (Int64)
 import Data.Int64 as Int64
 import Yoga.Protobuf.Bytes (Bytes)
+import Yoga.Protobuf.Unsigned (UInt32(..), UInt64(..))
 
 -- | Where the varint at `position` ends, if it ends before `end` and within ten bytes.
 -- | Otherwise `-1` when the input ends first, `-2` when the varint is longer than ten bytes.
@@ -74,6 +81,12 @@ varint64 input position = runFn3 varint64Impl fromLowHigh input position
 
 foreign import varint64Impl :: Fn3 (Fn2 Int Int Int64) Bytes Int Int64
 
+uint32 :: Bytes -> Int -> UInt32
+uint32 input position = UInt32 (varint32 input position)
+
+uint64 :: Bytes -> Int -> UInt64
+uint64 input position = UInt64 (varint64 input position)
+
 bool :: Bytes -> Int -> Boolean
 bool input position = runFn2 boolImpl input position
 
@@ -90,6 +103,12 @@ fixed32 :: Bytes -> Int -> Int
 fixed32 input position = runFn2 fixed32Impl input position
 
 foreign import fixed32Impl :: Fn2 Bytes Int Int
+
+unsignedFixed32 :: Bytes -> Int -> UInt32
+unsignedFixed32 input position = UInt32 (fixed32 input position)
+
+unsignedFixed64 :: Bytes -> Int -> UInt64
+unsignedFixed64 input position = UInt64 (fixed64 input position)
 
 fixed64 :: Bytes -> Int -> Int64
 fixed64 input position = runFn3 fixed64Impl fromLowHigh input position
@@ -129,6 +148,17 @@ bytes :: Bytes -> Int -> Int -> Bytes
 bytes input start end = runFn3 bytesImpl input start end
 
 foreign import bytesImpl :: Fn3 Bytes Int Int Bytes
+
+-- | `values` and then the lowest 32 bits of each varint from `start` up to `end`, which
+-- | `packedVarintsValid` has to have said are whole. Pushes to `values` in place.
+packedInt32 :: Bytes -> Int -> Int -> Array Int -> Array Int
+packedInt32 input start end values = runFn4 packedInt32Impl input start end values
+
+foreign import packedInt32Impl :: Fn4 Bytes Int Int (Array Int) (Array Int)
+
+-- | Whether the bytes from `start` up to `end` are whole values of `width` bytes each.
+packedFixedValid :: Int -> Int -> Int -> Boolean
+packedFixedValid start end width = (end - start) `mod` width == 0
 
 -- | Whether the bytes from `start` up to `end` are whole varints of at most ten bytes each.
 packedVarintsValid :: Bytes -> Int -> Int -> Boolean

@@ -3,6 +3,7 @@ package ffi
 import (
 	"encoding/binary"
 	"math"
+	"slices"
 	"unicode/utf8"
 )
 
@@ -168,6 +169,14 @@ func VarintCountImpl(input []byte, start int32, end int32) int32 {
 		}
 	}
 	return count
+}
+
+func PackedInt32Impl(input []byte, start int32, end int32, values []int32) []int32 {
+	values = slices.Grow(values, int(VarintCountImpl(input, start, end)))
+	for position := start; position < end; position = VarintEndImpl(input, position, end) {
+		values = append(values, Varint32Impl(input, position))
+	}
+	return values
 }
 
 func PackedVarintsValidImpl(input []byte, start int32, end int32) bool {
