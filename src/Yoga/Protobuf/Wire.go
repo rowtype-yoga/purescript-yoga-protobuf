@@ -147,14 +147,33 @@ var InvalidUtf8Impl = "\xed\xa0\x80"
 
 func StringImpl(input []byte, start int32, end int32) string {
 	text := input[start:end]
-	if utf8.Valid(text) {
+	if valid(text) {
 		return string(text)
 	}
 	return InvalidUtf8Impl
 }
 
 func Utf8ValidImpl(input []byte, start int32, end int32) bool {
-	return utf8.Valid(input[start:end])
+	return valid(input[start:end])
+}
+
+// valid checks for ASCII eight bytes at a time in a loop Go inlines, and only calls
+// utf8.Valid for text that isn't: most strings in messages are short and ASCII, and for
+// those the call costs as much as the check.
+func valid(text []byte) bool {
+	return ascii(text) || utf8.Valid(text)
+}
+
+func ascii(text []byte) bool {
+	var bits uint64
+	for len(text) >= 8 {
+		bits |= binary.LittleEndian.Uint64(text)
+		text = text[8:]
+	}
+	for _, byte_ := range text {
+		bits |= uint64(byte_)
+	}
+	return bits&0x8080808080808080 == 0
 }
 
 func BytesImpl(input []byte, start int32, end int32) []byte {

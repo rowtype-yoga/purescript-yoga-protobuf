@@ -78,6 +78,10 @@ spec = describe "Yoga.Protobuf.Wire" do
       stringOf [ 0xf4, 0x90, 0x80, 0x80 ] `shouldEqual` Wire.invalidUtf8
     it "rejects invalid UTF-8 in a long string too" do
       stringOf (Array.replicate 40 0x61 <> [ 0xc0, 0x80 ]) `shouldEqual` Wire.invalidUtf8
+    it "rejects a byte that isn't UTF-8 among ASCII on both sides" do
+      stringOf (Array.replicate 3 0x61 <> [ 0xff ] <> Array.replicate 12 0x61) `shouldEqual` Wire.invalidUtf8
+    it "reads text that isn't ASCII in the middle of a long string" do
+      stringOf (Array.replicate 5 0x61 <> [ 0xc3, 0xa9 ] <> Array.replicate 9 0x61) `shouldEqual` (power "a" 5 <> "é" <> power "a" 9)
 
   describe "utf8Valid" do
     it "accepts what string reads" do
