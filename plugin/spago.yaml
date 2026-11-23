@@ -1,0 +1,17 @@
+package:
+  name: yoga-protobuf-plugin
+  description: protoc-gen-purescript, the code generator, which runs on Bun and as a native binary through Iris
+  dependencies:
+    - arrays
+    - effect
+    - either
+    - foldable-traversable
+    - int64
+    - integers
+    - maybe
+    - newtype
+    - ordered-collections
+    - prelude
+    - strings
+    - tuples
+    - yoga-protobuf

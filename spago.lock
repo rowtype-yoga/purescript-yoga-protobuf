@@ -73,6 +73,29 @@
           "dependencies": []
         }
       },
+      "yoga-protobuf-plugin": {
+        "path": "plugin",
+        "core": {
+          "dependencies": [
+            "arrays",
+            "effect",
+            "either",
+            "foldable-traversable",
+            "int64",
+            "integers",
+            "maybe",
+            "newtype",
+            "ordered-collections",
+            "prelude",
+            "strings",
+            "tuples",
+            "yoga-protobuf"
+          ]
+        },
+        "test": {
+          "dependencies": []
+        }
+      },
       "yoga-protobuf-test": {
         "path": "spec",
         "core": {

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# protoc-gen-purescript on Bun, after `spago build -p yoga-protobuf-plugin`:
+#
+#   protoc --plugin=protoc-gen-purescript=bin/protoc-gen-purescript-bun --purescript_out=src foo.proto
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec bun -e "import('$root/output-es/Yoga.Protobuf.Plugin.Main/index.js').then(plugin => plugin.main())"
