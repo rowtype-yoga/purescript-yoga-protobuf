@@ -1,0 +1,10 @@
+/.spago/
+/output/
+/output-es/
+/bench/.spago/
+/bench/output/
+/bench/output-es/
+/bench/go/bin/
+/bench/js/node_modules/
+/bench/results/
+node_modules/

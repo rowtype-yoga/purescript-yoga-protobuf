@@ -1,0 +1,33 @@
+package:
+  name: yoga-protobuf
+  description: Fast protocol buffers for PureScript on JavaScript and on Go through Iris
+  dependencies:
+    - arrays
+    - effect
+    - either
+    - functions
+    - int64
+    - integers
+    - maybe
+    - newtype
+    - ordered-collections
+    - partial
+    - prelude
+  test:
+    main: Test.Main
+    dependencies:
+      - aff
+      - spec
+  publish:
+    version: 0.1.0
+    license: MIT
+    location:
+      githubOwner: rowtype-yoga
+      githubRepo: purescript-yoga-protobuf
+workspace:
+  packageSet:
+    registry: 83.3.0
+  backend:
+    cmd: purs-backend-es
+    args:
+      - build
