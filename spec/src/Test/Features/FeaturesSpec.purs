@@ -21,6 +21,7 @@ import Yoga.Protobuf.Bytes as Bytes
 import Yoga.Protobuf.Error (DecodeError(..))
 import Yoga.Protobuf.Generated.Features (Colour(..), Direction(..), Light(..), Tree(..), decodeChoice, decodeEverything, decodeKeywords, decodeMaps, decodeRepeateds, decodeScalars, decodeTree, decodeWide, defaultChoice, defaultEverything, defaultOptionals, defaultRepeateds, defaultScalars, defaultTree, encodeChoice, encodeEverything, encodeKeywords, encodeOptionals, encodeRepeateds, encodeScalars, encodeTree, fromColour, toColour)
 import Yoga.Protobuf.Generated.Legacy (Legacy(..), Legacy_Size(..), decodeLegacy, encodeLegacy)
+import Yoga.Protobuf.TwoStep.Features as TwoStep
 import Yoga.Protobuf.Unsigned (UInt32(..), UInt64(..))
 
 spec :: Spec Unit
@@ -117,11 +118,27 @@ spec = describe "generated code" do
       encodeChoice (defaultChoice { pick = Just (Variant.inj (Proxy :: _ "colour") ColourRed), after = "z" })
         `shouldEqual` Bytes.fromArray [ 0x20, 0x01, 0x2a, 0x01, 0x7a ]
 
-  describe "messages decoded in two steps" do
+  describe "messages decoded in a loop, as they are without fields_threshold" do
     it "reads a wide message's fields" do
       map _.aString (decodeWide (Bytes.fromArray [ 0x12, 0x01, 0x62, 0xf2, 0x01, 0x01, 0x63 ])) `shouldEqual` Right "b"
     it "says where a wide message's string isn't UTF-8" do
       decodeWide (Bytes.fromArray [ 0x08, 0x01, 0xf2, 0x01, 0x02, 0xc0, 0x80 ]) `shouldEqual` Left (InvalidUtf8 5)
+
+  describe "messages decoded in two steps, with fields_threshold=1" do
+    it "decodes protobuf-es's bytes for everything and encodes them back with the map entries in order" do
+      bytes <- fixture ProtobufEs "everything"
+      sorted <- fixture ProtobufEs "everything-sorted"
+      map TwoStep.encodeEverything (TwoStep.decodeEverything bytes) `shouldEqual` Right sorted
+    it "reads a wide message's fields" do
+      map _.aString (TwoStep.decodeWide (Bytes.fromArray [ 0x12, 0x01, 0x62, 0xf2, 0x01, 0x01, 0x63 ])) `shouldEqual` Right "b"
+    it "lets the last value of a field win" do
+      map _.anInt32 (TwoStep.decodeWide (Bytes.fromArray [ 0x08, 0x01, 0x08, 0x02 ])) `shouldEqual` Right 2
+    it "skips a field whose wire type isn't the one the message has for it" do
+      map _.anInt32 (TwoStep.decodeWide (Bytes.fromArray [ 0x0a, 0x01, 0x61 ])) `shouldEqual` Right 0
+    it "says where a wide message's string isn't UTF-8" do
+      TwoStep.decodeWide (Bytes.fromArray [ 0x08, 0x01, 0xf2, 0x01, 0x02, 0xc0, 0x80 ]) `shouldEqual` Left (InvalidUtf8 5)
+    it "says where a field runs past the end" do
+      TwoStep.decodeWide (Bytes.fromArray [ 0x12, 0x05, 0x61 ]) `shouldEqual` Left (Truncated 1)
   where
   fixture writer name = readFile ("spec/fixtures/" <> name <> suffixOf writer) # liftEffect
   withoutOneofs = Samples.everything { choice = map (_ { pick = Nothing, other = Nothing }) Samples.everything.choice }

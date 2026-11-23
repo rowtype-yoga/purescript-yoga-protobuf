@@ -1,4 +1,4 @@
--- | How the two-step `bench.Wide` decoder handles messages, good and broken.
+-- | How the `bench.Wide` decoder handles messages, good and broken.
 module Test.Bench.WideSpec where
 
 import Prelude

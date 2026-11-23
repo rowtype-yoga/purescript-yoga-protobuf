@@ -34,7 +34,7 @@ import Prelude
 
 import Data.Array as Array
 import Data.Either (Either(..))
-import Data.Function.Uncurried (mkFn3, runFn3, runFn4)
+import Data.Function.Uncurried (mkFn3, runFn3)
 import Data.Int64 (Int64)
 import Data.Map (Map)
 import Data.Map as Map
@@ -44,7 +44,6 @@ import Yoga.Protobuf.Bytes (Bytes)
 import Yoga.Protobuf.Codec (Codec, codec)
 import Yoga.Protobuf.Decode (Entry, Reader, decodeMessage, mapFromEntries, packedInt32)
 import Yoga.Protobuf.Error (DecodeError(..), failure)
-import Yoga.Protobuf.Fields as Fields
 import Yoga.Protobuf.Repeated as Repeated
 import Yoga.Protobuf.Wire as Wire
 import Yoga.Protobuf.Writer (Writer, encodeWith)
@@ -473,86 +472,308 @@ encodeWide message = encodeWith writeWide message
 readWide :: Reader Wide
 readWide = mkFn3 \input start end -> do
   let
-    scan position fields
-      | position >= end = Right fields
+    loop position f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+      | position >= end = Right
+          { f1
+          , f2
+          , f3
+          , f4
+          , f5
+          , f6
+          , f7
+          , f8
+          , f9
+          , f10
+          , f11
+          , f12
+          , f13
+          , f14
+          , f15
+          , f16
+          , f17
+          , f18
+          , f19
+          , f20
+          , f21
+          , f22
+          , f23
+          , f24
+          , f25
+          , f26
+          , f27
+          , f28
+          , f29
+          , f30
+          , f31
+          , f32
+          , f33
+          , f34
+          , f35
+          , f36
+          , f37
+          , f38
+          , f39
+          , f40
+          , f41
+          , f42
+          , f43
+          , f44
+          , f45
+          , f46
+          , f47
+          , f48
+          , f49
+          , f50
+          }
       | otherwise = do
           let afterTag = Wire.varintEnd input position end
           if afterTag < 0 then Left (failure afterTag position)
-          else do
-            let tag = Wire.varint32 input position
-            let next = Wire.skip input tag afterTag end
-            if next < 0 then Left (failure next afterTag)
-            else scan next (Fields.note fields wideWireTypes tag afterTag)
-  case scan start (Fields.new input 51) of
-    Left error -> Left error
-    Right fields -> do
-      let
-        record =
-          { f1: runFn3 Fields.int32 input fields 1
-          , f2: runFn4 Fields.string input fields 2 end
-          , f3: runFn3 Fields.double input fields 3
-          , f4: runFn3 Fields.int64 input fields 4
-          , f5: runFn3 Fields.bool input fields 5
-          , f6: runFn3 Fields.int32 input fields 6
-          , f7: runFn4 Fields.string input fields 7 end
-          , f8: runFn3 Fields.double input fields 8
-          , f9: runFn3 Fields.int64 input fields 9
-          , f10: runFn3 Fields.bool input fields 10
-          , f11: runFn3 Fields.int32 input fields 11
-          , f12: runFn4 Fields.string input fields 12 end
-          , f13: runFn3 Fields.double input fields 13
-          , f14: runFn3 Fields.int64 input fields 14
-          , f15: runFn3 Fields.bool input fields 15
-          , f16: runFn3 Fields.int32 input fields 16
-          , f17: runFn4 Fields.string input fields 17 end
-          , f18: runFn3 Fields.double input fields 18
-          , f19: runFn3 Fields.int64 input fields 19
-          , f20: runFn3 Fields.bool input fields 20
-          , f21: runFn3 Fields.int32 input fields 21
-          , f22: runFn4 Fields.string input fields 22 end
-          , f23: runFn3 Fields.double input fields 23
-          , f24: runFn3 Fields.int64 input fields 24
-          , f25: runFn3 Fields.bool input fields 25
-          , f26: runFn3 Fields.int32 input fields 26
-          , f27: runFn4 Fields.string input fields 27 end
-          , f28: runFn3 Fields.double input fields 28
-          , f29: runFn3 Fields.int64 input fields 29
-          , f30: runFn3 Fields.bool input fields 30
-          , f31: runFn3 Fields.int32 input fields 31
-          , f32: runFn4 Fields.string input fields 32 end
-          , f33: runFn3 Fields.double input fields 33
-          , f34: runFn3 Fields.int64 input fields 34
-          , f35: runFn3 Fields.bool input fields 35
-          , f36: runFn3 Fields.int32 input fields 36
-          , f37: runFn4 Fields.string input fields 37 end
-          , f38: runFn3 Fields.double input fields 38
-          , f39: runFn3 Fields.int64 input fields 39
-          , f40: runFn3 Fields.bool input fields 40
-          , f41: runFn3 Fields.int32 input fields 41
-          , f42: runFn4 Fields.string input fields 42 end
-          , f43: runFn3 Fields.double input fields 43
-          , f44: runFn3 Fields.int64 input fields 44
-          , f45: runFn3 Fields.bool input fields 45
-          , f46: runFn3 Fields.int32 input fields 46
-          , f47: runFn4 Fields.string input fields 47 end
-          , f48: runFn3 Fields.double input fields 48
-          , f49: runFn3 Fields.int64 input fields 49
-          , f50: runFn3 Fields.bool input fields 50
-          }
-      if record.f2 == Wire.invalidUtf8 then Left (InvalidUtf8 (Fields.payloadStart input fields 2 end))
-      else if record.f7 == Wire.invalidUtf8 then Left (InvalidUtf8 (Fields.payloadStart input fields 7 end))
-      else if record.f12 == Wire.invalidUtf8 then Left (InvalidUtf8 (Fields.payloadStart input fields 12 end))
-      else if record.f17 == Wire.invalidUtf8 then Left (InvalidUtf8 (Fields.payloadStart input fields 17 end))
-      else if record.f22 == Wire.invalidUtf8 then Left (InvalidUtf8 (Fields.payloadStart input fields 22 end))
-      else if record.f27 == Wire.invalidUtf8 then Left (InvalidUtf8 (Fields.payloadStart input fields 27 end))
-      else if record.f32 == Wire.invalidUtf8 then Left (InvalidUtf8 (Fields.payloadStart input fields 32 end))
-      else if record.f37 == Wire.invalidUtf8 then Left (InvalidUtf8 (Fields.payloadStart input fields 37 end))
-      else if record.f42 == Wire.invalidUtf8 then Left (InvalidUtf8 (Fields.payloadStart input fields 42 end))
-      else if record.f47 == Wire.invalidUtf8 then Left (InvalidUtf8 (Fields.payloadStart input fields 47 end))
-      else Right record
-
-wideWireTypes :: Array Int
-wideWireTypes = [ -1, 0, 2, 1, 0, 0, 0, 2, 1, 0, 0, 0, 2, 1, 0, 0, 0, 2, 1, 0, 0, 0, 2, 1, 0, 0, 0, 2, 1, 0, 0, 0, 2, 1, 0, 0, 0, 2, 1, 0, 0, 0, 2, 1, 0, 0, 0, 2, 1, 0, 0 ]
+          else case Wire.varint32 input position of
+            8 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next (Wire.varint32 input afterTag) f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            18 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else do
+                let text = Wire.string input payload next
+                if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
+                else loop next f1 text f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            25 -> do
+              let next = Wire.fixedEnd afterTag 8 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 (Wire.double input afterTag) f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            32 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 (Wire.varint64 input afterTag) f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            40 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 (Wire.bool input afterTag) f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            48 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 (Wire.varint32 input afterTag) f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            58 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else do
+                let text = Wire.string input payload next
+                if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
+                else loop next f1 f2 f3 f4 f5 f6 text f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            65 -> do
+              let next = Wire.fixedEnd afterTag 8 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 (Wire.double input afterTag) f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            72 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 (Wire.varint64 input afterTag) f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            80 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 (Wire.bool input afterTag) f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            88 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 (Wire.varint32 input afterTag) f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            98 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else do
+                let text = Wire.string input payload next
+                if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
+                else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 text f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            105 -> do
+              let next = Wire.fixedEnd afterTag 8 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 (Wire.double input afterTag) f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            112 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 (Wire.varint64 input afterTag) f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            120 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 (Wire.bool input afterTag) f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            128 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 (Wire.varint32 input afterTag) f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            138 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else do
+                let text = Wire.string input payload next
+                if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
+                else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 text f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            145 -> do
+              let next = Wire.fixedEnd afterTag 8 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 (Wire.double input afterTag) f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            152 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 (Wire.varint64 input afterTag) f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            160 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 (Wire.bool input afterTag) f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            168 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 (Wire.varint32 input afterTag) f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            178 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else do
+                let text = Wire.string input payload next
+                if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
+                else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 text f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            185 -> do
+              let next = Wire.fixedEnd afterTag 8 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 (Wire.double input afterTag) f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            192 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 (Wire.varint64 input afterTag) f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            200 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 (Wire.bool input afterTag) f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            208 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 (Wire.varint32 input afterTag) f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            218 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else do
+                let text = Wire.string input payload next
+                if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
+                else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 text f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            225 -> do
+              let next = Wire.fixedEnd afterTag 8 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 (Wire.double input afterTag) f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            232 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 (Wire.varint64 input afterTag) f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            240 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 (Wire.bool input afterTag) f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            248 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 (Wire.varint32 input afterTag) f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            258 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else do
+                let text = Wire.string input payload next
+                if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
+                else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 text f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            265 -> do
+              let next = Wire.fixedEnd afterTag 8 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 (Wire.double input afterTag) f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            272 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 (Wire.varint64 input afterTag) f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            280 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 (Wire.bool input afterTag) f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            288 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 (Wire.varint32 input afterTag) f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            298 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else do
+                let text = Wire.string input payload next
+                if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
+                else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 text f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            305 -> do
+              let next = Wire.fixedEnd afterTag 8 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 (Wire.double input afterTag) f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            312 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 (Wire.varint64 input afterTag) f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            320 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 (Wire.bool input afterTag) f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+            328 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 (Wire.varint32 input afterTag) f42 f43 f44 f45 f46 f47 f48 f49 f50
+            338 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else do
+                let text = Wire.string input payload next
+                if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
+                else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 text f43 f44 f45 f46 f47 f48 f49 f50
+            345 -> do
+              let next = Wire.fixedEnd afterTag 8 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 (Wire.double input afterTag) f44 f45 f46 f47 f48 f49 f50
+            352 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 (Wire.varint64 input afterTag) f45 f46 f47 f48 f49 f50
+            360 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 (Wire.bool input afterTag) f46 f47 f48 f49 f50
+            368 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 (Wire.varint32 input afterTag) f47 f48 f49 f50
+            378 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else do
+                let text = Wire.string input payload next
+                if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
+                else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 text f48 f49 f50
+            385 -> do
+              let next = Wire.fixedEnd afterTag 8 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 (Wire.double input afterTag) f49 f50
+            392 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 (Wire.varint64 input afterTag) f50
+            400 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 (Wire.bool input afterTag)
+            tag -> do
+              let next = Wire.skip input tag afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50
+  loop start 0 "" 0.0 zero false 0 "" 0.0 zero false 0 "" 0.0 zero false 0 "" 0.0 zero false 0 "" 0.0 zero false 0 "" 0.0 zero false 0 "" 0.0 zero false 0 "" 0.0 zero false 0 "" 0.0 zero false 0 "" 0.0 zero false
 
 -- | Writes `Wide` back to front, for the messages it's in.
 writeWide :: Writer -> Wide -> Effect Unit

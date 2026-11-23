@@ -109,7 +109,7 @@ import Prelude
 
 import Data.Array as Array
 import Data.Either (Either(..))
-import Data.Function.Uncurried (mkFn3, runFn3, runFn4)
+import Data.Function.Uncurried (mkFn3, runFn3)
 import Data.Int64 (Int64)
 import Data.Map (Map)
 import Data.Map as Map
@@ -125,7 +125,6 @@ import Yoga.Protobuf.Codec (Codec, codec)
 import Yoga.Protobuf.Decode (Entry, Reader, decodeMessage, mapFromEntries, packedInt32)
 import Yoga.Protobuf.Decode as Decode
 import Yoga.Protobuf.Error (DecodeError(..), failure)
-import Yoga.Protobuf.Fields as Fields
 import Yoga.Protobuf.Repeated as Repeated
 import Yoga.Protobuf.Unsigned (UInt32(..), UInt64(..))
 import Yoga.Protobuf.Wire as Wire
@@ -343,45 +342,113 @@ encodeScalars message = encodeWith writeScalars message
 readScalars :: Reader Scalars
 readScalars = mkFn3 \input start end -> do
   let
-    scan position fields
-      | position >= end = Right fields
+    loop position aDouble aFloat anInt32 anInt64 aUint32 aUint64 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aBool aString someBytes aColour aLight aDirection
+      | position >= end = Right
+          { aDouble
+          , aFloat
+          , anInt32
+          , anInt64
+          , aUint32
+          , aUint64
+          , aSint32
+          , aSint64
+          , aFixed32
+          , aFixed64
+          , anSfixed32
+          , anSfixed64
+          , aBool
+          , aString
+          , someBytes
+          , aColour
+          , aLight
+          , aDirection
+          }
       | otherwise = do
           let afterTag = Wire.varintEnd input position end
           if afterTag < 0 then Left (failure afterTag position)
-          else do
-            let tag = Wire.varint32 input position
-            let next = Wire.skip input tag afterTag end
-            if next < 0 then Left (failure next afterTag)
-            else scan next (Fields.note fields scalarsWireTypes tag afterTag)
-  case scan start (Fields.new input 19) of
-    Left error -> Left error
-    Right fields -> do
-      let
-        record =
-          { aDouble: runFn3 Fields.double input fields 1
-          , aFloat: runFn3 Fields.float input fields 2
-          , anInt32: runFn3 Fields.int32 input fields 3
-          , anInt64: runFn3 Fields.int64 input fields 4
-          , aUint32: UInt32 (runFn3 Fields.int32 input fields 5)
-          , aUint64: UInt64 (runFn3 Fields.int64 input fields 6)
-          , aSint32: Wire.zigzag32 (runFn3 Fields.int32 input fields 7)
-          , aSint64: Wire.zigzag64 (runFn3 Fields.int64 input fields 8)
-          , aFixed32: UInt32 (runFn3 Fields.fixed32 input fields 9)
-          , aFixed64: UInt64 (runFn3 Fields.fixed64 input fields 10)
-          , anSfixed32: runFn3 Fields.fixed32 input fields 11
-          , anSfixed64: runFn3 Fields.fixed64 input fields 12
-          , aBool: runFn3 Fields.bool input fields 13
-          , aString: runFn4 Fields.string input fields 14 end
-          , someBytes: runFn4 Fields.bytes input fields 15 end
-          , aColour: toColour (runFn3 Fields.int32 input fields 16)
-          , aLight: toLight (runFn3 Fields.int32 input fields 17)
-          , aDirection: toDirection (runFn3 Fields.int32 input fields 18)
-          }
-      if record.aString == Wire.invalidUtf8 then Left (InvalidUtf8 (Fields.payloadStart input fields 14 end))
-      else Right record
-
-scalarsWireTypes :: Array Int
-scalarsWireTypes = [ -1, 1, 5, 0, 0, 0, 0, 0, 0, 5, 1, 5, 1, 0, 2, 2, 0, 0, 0 ]
+          else case Wire.varint32 input position of
+            9 -> do
+              let next = Wire.fixedEnd afterTag 8 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next (Wire.double input afterTag) aFloat anInt32 anInt64 aUint32 aUint64 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aBool aString someBytes aColour aLight aDirection
+            21 -> do
+              let next = Wire.fixedEnd afterTag 4 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next aDouble (Wire.float input afterTag) anInt32 anInt64 aUint32 aUint64 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aBool aString someBytes aColour aLight aDirection
+            24 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next aDouble aFloat (Wire.varint32 input afterTag) anInt64 aUint32 aUint64 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aBool aString someBytes aColour aLight aDirection
+            32 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next aDouble aFloat anInt32 (Wire.varint64 input afterTag) aUint32 aUint64 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aBool aString someBytes aColour aLight aDirection
+            40 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next aDouble aFloat anInt32 anInt64 (Wire.uint32 input afterTag) aUint64 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aBool aString someBytes aColour aLight aDirection
+            48 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next aDouble aFloat anInt32 anInt64 aUint32 (Wire.uint64 input afterTag) aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aBool aString someBytes aColour aLight aDirection
+            56 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next aDouble aFloat anInt32 anInt64 aUint32 aUint64 (Wire.sint32 input afterTag) aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aBool aString someBytes aColour aLight aDirection
+            64 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next aDouble aFloat anInt32 anInt64 aUint32 aUint64 aSint32 (Wire.sint64 input afterTag) aFixed32 aFixed64 anSfixed32 anSfixed64 aBool aString someBytes aColour aLight aDirection
+            77 -> do
+              let next = Wire.fixedEnd afterTag 4 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next aDouble aFloat anInt32 anInt64 aUint32 aUint64 aSint32 aSint64 (Wire.unsignedFixed32 input afterTag) aFixed64 anSfixed32 anSfixed64 aBool aString someBytes aColour aLight aDirection
+            81 -> do
+              let next = Wire.fixedEnd afterTag 8 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next aDouble aFloat anInt32 anInt64 aUint32 aUint64 aSint32 aSint64 aFixed32 (Wire.unsignedFixed64 input afterTag) anSfixed32 anSfixed64 aBool aString someBytes aColour aLight aDirection
+            93 -> do
+              let next = Wire.fixedEnd afterTag 4 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next aDouble aFloat anInt32 anInt64 aUint32 aUint64 aSint32 aSint64 aFixed32 aFixed64 (Wire.fixed32 input afterTag) anSfixed64 aBool aString someBytes aColour aLight aDirection
+            97 -> do
+              let next = Wire.fixedEnd afterTag 8 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next aDouble aFloat anInt32 anInt64 aUint32 aUint64 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 (Wire.fixed64 input afterTag) aBool aString someBytes aColour aLight aDirection
+            104 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next aDouble aFloat anInt32 anInt64 aUint32 aUint64 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 (Wire.bool input afterTag) aString someBytes aColour aLight aDirection
+            114 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else do
+                let text = Wire.string input payload next
+                if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
+                else loop next aDouble aFloat anInt32 anInt64 aUint32 aUint64 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aBool text someBytes aColour aLight aDirection
+            122 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else loop next aDouble aFloat anInt32 anInt64 aUint32 aUint64 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aBool aString (Wire.bytes input payload next) aColour aLight aDirection
+            128 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next aDouble aFloat anInt32 anInt64 aUint32 aUint64 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aBool aString someBytes (toColour (Wire.varint32 input afterTag)) aLight aDirection
+            136 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next aDouble aFloat anInt32 anInt64 aUint32 aUint64 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aBool aString someBytes aColour (toLight (Wire.varint32 input afterTag)) aDirection
+            144 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next aDouble aFloat anInt32 anInt64 aUint32 aUint64 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aBool aString someBytes aColour aLight (toDirection (Wire.varint32 input afterTag))
+            tag -> do
+              let next = Wire.skip input tag afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next aDouble aFloat anInt32 anInt64 aUint32 aUint64 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aBool aString someBytes aColour aLight aDirection
+  loop start 0.0 0.0 0 zero (UInt32 0) (UInt64 zero) 0 zero (UInt32 0) (UInt64 zero) 0 zero false "" Bytes.empty ColourUnspecified LightUnspecified North
 
 -- | Writes `Scalars` back to front, for the messages it's in.
 writeScalars :: Writer -> Scalars -> Effect Unit
@@ -2036,51 +2103,141 @@ encodeWide message = encodeWith writeWide message
 readWide :: Reader Wide
 readWide = mkFn3 \input start end -> do
   let
-    scan position fields
-      | position >= end = Right fields
+    loop position anInt32 aString aDouble anInt64 aBool aUint32 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat someBytes aColour aUint64 anotherInt32 anotherString anotherDouble anotherInt64 anotherBool lastString
+      | position >= end = Right
+          { anInt32
+          , aString
+          , aDouble
+          , anInt64
+          , aBool
+          , aUint32
+          , aSint32
+          , aSint64
+          , aFixed32
+          , aFixed64
+          , anSfixed32
+          , anSfixed64
+          , aFloat
+          , someBytes
+          , aColour
+          , aUint64
+          , anotherInt32
+          , anotherString
+          , anotherDouble
+          , anotherInt64
+          , anotherBool
+          , lastString
+          }
       | otherwise = do
           let afterTag = Wire.varintEnd input position end
           if afterTag < 0 then Left (failure afterTag position)
-          else do
-            let tag = Wire.varint32 input position
-            let next = Wire.skip input tag afterTag end
-            if next < 0 then Left (failure next afterTag)
-            else scan next (Fields.note fields wideWireTypes tag afterTag)
-  case scan start (Fields.new input 31) of
-    Left error -> Left error
-    Right fields -> do
-      let
-        record =
-          { anInt32: runFn3 Fields.int32 input fields 1
-          , aString: runFn4 Fields.string input fields 2 end
-          , aDouble: runFn3 Fields.double input fields 3
-          , anInt64: runFn3 Fields.int64 input fields 4
-          , aBool: runFn3 Fields.bool input fields 5
-          , aUint32: UInt32 (runFn3 Fields.int32 input fields 6)
-          , aSint32: Wire.zigzag32 (runFn3 Fields.int32 input fields 7)
-          , aSint64: Wire.zigzag64 (runFn3 Fields.int64 input fields 8)
-          , aFixed32: UInt32 (runFn3 Fields.fixed32 input fields 9)
-          , aFixed64: UInt64 (runFn3 Fields.fixed64 input fields 10)
-          , anSfixed32: runFn3 Fields.fixed32 input fields 11
-          , anSfixed64: runFn3 Fields.fixed64 input fields 12
-          , aFloat: runFn3 Fields.float input fields 13
-          , someBytes: runFn4 Fields.bytes input fields 14 end
-          , aColour: toColour (runFn3 Fields.int32 input fields 15)
-          , aUint64: UInt64 (runFn3 Fields.int64 input fields 16)
-          , anotherInt32: runFn3 Fields.int32 input fields 17
-          , anotherString: runFn4 Fields.string input fields 18 end
-          , anotherDouble: runFn3 Fields.double input fields 19
-          , anotherInt64: runFn3 Fields.int64 input fields 20
-          , anotherBool: runFn3 Fields.bool input fields 21
-          , lastString: runFn4 Fields.string input fields 30 end
-          }
-      if record.aString == Wire.invalidUtf8 then Left (InvalidUtf8 (Fields.payloadStart input fields 2 end))
-      else if record.anotherString == Wire.invalidUtf8 then Left (InvalidUtf8 (Fields.payloadStart input fields 18 end))
-      else if record.lastString == Wire.invalidUtf8 then Left (InvalidUtf8 (Fields.payloadStart input fields 30 end))
-      else Right record
-
-wideWireTypes :: Array Int
-wideWireTypes = [ -1, 0, 2, 1, 0, 0, 0, 0, 0, 5, 1, 5, 1, 5, 2, 0, 0, 0, 2, 1, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, 2 ]
+          else case Wire.varint32 input position of
+            8 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next (Wire.varint32 input afterTag) aString aDouble anInt64 aBool aUint32 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat someBytes aColour aUint64 anotherInt32 anotherString anotherDouble anotherInt64 anotherBool lastString
+            18 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else do
+                let text = Wire.string input payload next
+                if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
+                else loop next anInt32 text aDouble anInt64 aBool aUint32 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat someBytes aColour aUint64 anotherInt32 anotherString anotherDouble anotherInt64 anotherBool lastString
+            25 -> do
+              let next = Wire.fixedEnd afterTag 8 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString (Wire.double input afterTag) anInt64 aBool aUint32 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat someBytes aColour aUint64 anotherInt32 anotherString anotherDouble anotherInt64 anotherBool lastString
+            32 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString aDouble (Wire.varint64 input afterTag) aBool aUint32 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat someBytes aColour aUint64 anotherInt32 anotherString anotherDouble anotherInt64 anotherBool lastString
+            40 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString aDouble anInt64 (Wire.bool input afterTag) aUint32 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat someBytes aColour aUint64 anotherInt32 anotherString anotherDouble anotherInt64 anotherBool lastString
+            48 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString aDouble anInt64 aBool (Wire.uint32 input afterTag) aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat someBytes aColour aUint64 anotherInt32 anotherString anotherDouble anotherInt64 anotherBool lastString
+            56 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString aDouble anInt64 aBool aUint32 (Wire.sint32 input afterTag) aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat someBytes aColour aUint64 anotherInt32 anotherString anotherDouble anotherInt64 anotherBool lastString
+            64 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString aDouble anInt64 aBool aUint32 aSint32 (Wire.sint64 input afterTag) aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat someBytes aColour aUint64 anotherInt32 anotherString anotherDouble anotherInt64 anotherBool lastString
+            77 -> do
+              let next = Wire.fixedEnd afterTag 4 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString aDouble anInt64 aBool aUint32 aSint32 aSint64 (Wire.unsignedFixed32 input afterTag) aFixed64 anSfixed32 anSfixed64 aFloat someBytes aColour aUint64 anotherInt32 anotherString anotherDouble anotherInt64 anotherBool lastString
+            81 -> do
+              let next = Wire.fixedEnd afterTag 8 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString aDouble anInt64 aBool aUint32 aSint32 aSint64 aFixed32 (Wire.unsignedFixed64 input afterTag) anSfixed32 anSfixed64 aFloat someBytes aColour aUint64 anotherInt32 anotherString anotherDouble anotherInt64 anotherBool lastString
+            93 -> do
+              let next = Wire.fixedEnd afterTag 4 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString aDouble anInt64 aBool aUint32 aSint32 aSint64 aFixed32 aFixed64 (Wire.fixed32 input afterTag) anSfixed64 aFloat someBytes aColour aUint64 anotherInt32 anotherString anotherDouble anotherInt64 anotherBool lastString
+            97 -> do
+              let next = Wire.fixedEnd afterTag 8 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString aDouble anInt64 aBool aUint32 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 (Wire.fixed64 input afterTag) aFloat someBytes aColour aUint64 anotherInt32 anotherString anotherDouble anotherInt64 anotherBool lastString
+            109 -> do
+              let next = Wire.fixedEnd afterTag 4 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString aDouble anInt64 aBool aUint32 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 (Wire.float input afterTag) someBytes aColour aUint64 anotherInt32 anotherString anotherDouble anotherInt64 anotherBool lastString
+            114 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString aDouble anInt64 aBool aUint32 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat (Wire.bytes input payload next) aColour aUint64 anotherInt32 anotherString anotherDouble anotherInt64 anotherBool lastString
+            120 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString aDouble anInt64 aBool aUint32 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat someBytes (toColour (Wire.varint32 input afterTag)) aUint64 anotherInt32 anotherString anotherDouble anotherInt64 anotherBool lastString
+            128 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString aDouble anInt64 aBool aUint32 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat someBytes aColour (Wire.uint64 input afterTag) anotherInt32 anotherString anotherDouble anotherInt64 anotherBool lastString
+            136 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString aDouble anInt64 aBool aUint32 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat someBytes aColour aUint64 (Wire.varint32 input afterTag) anotherString anotherDouble anotherInt64 anotherBool lastString
+            146 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else do
+                let text = Wire.string input payload next
+                if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
+                else loop next anInt32 aString aDouble anInt64 aBool aUint32 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat someBytes aColour aUint64 anotherInt32 text anotherDouble anotherInt64 anotherBool lastString
+            153 -> do
+              let next = Wire.fixedEnd afterTag 8 end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString aDouble anInt64 aBool aUint32 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat someBytes aColour aUint64 anotherInt32 anotherString (Wire.double input afterTag) anotherInt64 anotherBool lastString
+            160 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString aDouble anInt64 aBool aUint32 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat someBytes aColour aUint64 anotherInt32 anotherString anotherDouble (Wire.varint64 input afterTag) anotherBool lastString
+            168 -> do
+              let next = Wire.varintEnd input afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString aDouble anInt64 aBool aUint32 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat someBytes aColour aUint64 anotherInt32 anotherString anotherDouble anotherInt64 (Wire.bool input afterTag) lastString
+            242 -> do
+              let payload = Wire.varintEnd input afterTag end
+              let next = Wire.delimitedEnd input afterTag payload end
+              if next < 0 then Left (failure next afterTag)
+              else do
+                let text = Wire.string input payload next
+                if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)
+                else loop next anInt32 aString aDouble anInt64 aBool aUint32 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat someBytes aColour aUint64 anotherInt32 anotherString anotherDouble anotherInt64 anotherBool text
+            tag -> do
+              let next = Wire.skip input tag afterTag end
+              if next < 0 then Left (failure next afterTag)
+              else loop next anInt32 aString aDouble anInt64 aBool aUint32 aSint32 aSint64 aFixed32 aFixed64 anSfixed32 anSfixed64 aFloat someBytes aColour aUint64 anotherInt32 anotherString anotherDouble anotherInt64 anotherBool lastString
+  loop start 0 "" 0.0 zero false (UInt32 0) 0 zero (UInt32 0) (UInt64 zero) 0 zero 0.0 Bytes.empty ColourUnspecified (UInt64 zero) 0 "" 0.0 zero false ""
 
 -- | Writes `Wide` back to front, for the messages it's in.
 writeWide :: Writer -> Wide -> Effect Unit

@@ -10,6 +10,7 @@ module Yoga.Protobuf.Plugin.Emit
 import Prelude
 
 import Data.Array as Array
+import Data.Maybe (Maybe)
 import Data.String as String
 
 import Yoga.Protobuf.Plugin.Emit.Code (indentBy, initial, parenthesised, recordLines, valueType)
@@ -19,9 +20,9 @@ import Yoga.Protobuf.Plugin.Imports (importsFor)
 import Yoga.Protobuf.Plugin.Names (lowerFirst)
 import Yoga.Protobuf.Plugin.Schema (EnumModel, Field, FileModel, Member(..), MessageModel, Shape(..))
 
--- | `fieldsThreshold`: messages with at least this many fields, all of them plain values, are
--- | decoded in two steps (see `Yoga.Protobuf.Fields`).
-type Options = { fieldsThreshold :: Int }
+-- | `fieldsThreshold`: if there is one, messages with at least this many fields, all of them
+-- | plain values, are decoded in two steps (see `Yoga.Protobuf.Fields`).
+type Options = { fieldsThreshold :: Maybe Int }
 
 -- | The module's text, laid out as purs-tidy would.
 moduleFor :: Options -> FileModel -> String

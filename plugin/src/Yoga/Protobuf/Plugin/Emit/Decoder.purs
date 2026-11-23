@@ -1,9 +1,9 @@
 -- | The decoders of a generated module.
 -- |
 -- | A message's decoder reads one field per step of a loop whose arguments are the fields so far,
--- | which both backends run as a loop over local variables. A message with many plain fields is
--- | read in two steps instead (see `Yoga.Protobuf.Fields`), and a map field's entries with a
--- | decoder of their own.
+-- | which both backends run as a loop over local variables. With `fields_threshold`, a message
+-- | with many plain fields is read in two steps instead (see `Yoga.Protobuf.Fields`). A map
+-- | field's entries have a decoder of their own.
 module Yoga.Protobuf.Plugin.Emit.Decoder
   ( reader
   , entryReader
@@ -13,16 +13,16 @@ import Prelude
 
 import Data.Array as Array
 import Data.Foldable (all, maximum)
-import Data.Maybe (Maybe(..), fromMaybe, isJust)
+import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.String as String
 
 import Yoga.Protobuf.Plugin.Emit.Code (InMessage, WireType(..), fieldsOf, indentBy, initial, parenthesised, recordLines, tagOf, valueType, wireNumber, wireTypeOf, zeroOf)
 import Yoga.Protobuf.Plugin.Names (lowerFirst)
 import Yoga.Protobuf.Plugin.Schema (Field, MapEntry, Member(..), MessageModel, Shape(..), ValueType(..))
 
--- | `readX :: Reader X`: in two steps if the message has at least `fieldsThreshold` fields and
--- | they're all plain values, in a loop otherwise.
-reader :: Int -> MessageModel -> Array String
+-- | `readX :: Reader X`: in two steps if there's a `fieldsThreshold`, the message has at least
+-- | that many fields and they're all plain values, in a loop otherwise.
+reader :: Maybe Int -> MessageModel -> Array String
 reader fieldsThreshold message
   | twoStep fieldsThreshold message = fieldsReader message
   | otherwise = loopReader message
@@ -254,11 +254,11 @@ packedBranch number packed continue values =
 
 -- Decoding in two steps
 
--- | Whether the message has enough fields to read them in two steps, and they're all plain
--- | values with numbers small enough to index an array by.
-twoStep :: Int -> MessageModel -> Boolean
+-- | Whether there's a threshold, the message has enough fields to read them in two steps, and
+-- | they're all plain values with numbers small enough to index an array by.
+twoStep :: Maybe Int -> MessageModel -> Boolean
 twoStep fieldsThreshold message =
-  Array.length message.members >= fieldsThreshold
+  maybe false (Array.length message.members >= _) fieldsThreshold
     && all plainValue message.members
     && fromMaybe 0 (maximum (map _.field.number (fieldsOf message))) <= 256
   where

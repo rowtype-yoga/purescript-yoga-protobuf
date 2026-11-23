@@ -4,11 +4,13 @@
 -- |
 -- | - `module_prefix=My.Modules` puts the modules under `My.Modules` instead of
 -- |   `Yoga.Protobuf.Generated`
--- | - `fields_threshold=N` decodes messages with at least `N` plain fields in two steps
+-- | - `fields_threshold=N` decodes messages with at least `N` plain fields in two steps. Without
+-- |   it, every message is decoded in a loop, which is faster on Go for messages of any width:
+-- |   with 50 fields 385 ns against 430, with 5 fields 32 against 38. On Bun two steps win
+-- |   from 10 fields up, so a JavaScript-only project may want `fields_threshold=10`.
 module Yoga.Protobuf.Plugin.Generate
   ( run
   , generate
-  , defaultFieldsThreshold
   ) where
 
 import Prelude
@@ -46,7 +48,7 @@ generate request = case schemaOf prefix request.fileToGenerate request.protoFile
   parameters = parametersOf (fromMaybe "" request.parameter)
   parameter key = map _.value (Array.find (\entry -> entry.key == key) parameters)
   prefix = fromMaybe "Yoga.Protobuf.Generated" (parameter "module_prefix")
-  fieldsThreshold = fromMaybe defaultFieldsThreshold (parameter "fields_threshold" >>= Int.fromString)
+  fieldsThreshold = parameter "fields_threshold" >>= Int.fromString
   file model = defaultCodeGeneratorResponse_File
     { name = Just (Names.modulePath model.moduleName)
     , content = Just (moduleFor { fieldsThreshold } model)
@@ -55,13 +57,6 @@ generate request = case schemaOf prefix request.fileToGenerate request.protoFile
 -- | `FEATURE_PROTO3_OPTIONAL`: the generator knows `optional` in proto3 files.
 proto3Optional :: UInt64
 proto3Optional = UInt64 (Int64.fromInt 1)
-
--- | The fewest plain fields a message needs to be decoded in two steps. With every field set,
--- | two steps were faster from 5 fields up on both backends; from 10 they're 10% faster on Go
--- | and 45% on Bun. Below that, a message that sets few of its fields is better off with the
--- | loop, as the second step reads every field the message has.
-defaultFieldsThreshold :: Int
-defaultFieldsThreshold = 10
 
 failed :: String -> CodeGeneratorResponse
 failed error = defaultCodeGeneratorResponse { error = Just error, supportedFeatures = Just proto3Optional }
