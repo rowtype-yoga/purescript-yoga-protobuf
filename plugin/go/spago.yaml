@@ -1,0 +1,13 @@
+package:
+  name: protoc-gen-purescript
+  description: protoc-gen-purescript as a native binary, compiled by Iris, reading and writing through purescript-go
+  dependencies:
+    - effect
+    - either
+    - go-bytes
+    - go-io
+    - go-os
+    - newtype
+    - prelude
+    - yoga-protobuf
+    - yoga-protobuf-plugin
