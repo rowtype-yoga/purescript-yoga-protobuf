@@ -3,9 +3,10 @@
 Fast protocol buffers for PureScript. The same code runs on JavaScript and, compiled with
 [Iris](https://github.com/i-am-the-slime/purescript-analyzer/tree/iris-go), as native Go.
 
-Messages are plain records, decoding gives you an `Either DecodeError`, and broken input is a
-`Left`, never an exception: truncated bytes, overlong varints, bad wire types and text that isn't
-UTF-8 all say where they went wrong.
+You point `protoc` at your `.proto` files and get a PureScript module per file. Messages are plain
+records, decoding gives you an `Either DecodeError`, and broken input is a `Left`, never an
+exception: truncated bytes, overlong varints, bad wire types and text that isn't UTF-8 all say where
+they went wrong.
 
 ```purescript
 decodeMsg :: Bytes -> Either DecodeError Msg
@@ -14,54 +15,155 @@ encodeMsg :: Msg -> Bytes
 
 ## Status
 
-Milestone 1 of the plan: the runtime (`Yoga.Protobuf.*`) and hand-written codecs for the
-benchmark's messages, in the shape the code generator will emit. There's no generator yet, so
-you can't point it at your `.proto` files. proto3 only for now.
+Milestone 2: the code generator, `protoc-gen-purescript`. It's written in PureScript too, runs as
+a native binary (Iris) or on Bun, and generates its own `descriptor.proto` and `plugin.proto`
+decoders. proto3 and proto2 work; editions, groups and extensions don't yet.
 
-What's in the runtime:
+## Generating code
 
-- **`Wire`** reads varints, fixed-width numbers, strings and bytes, checking bounds and UTF-8
-- **`Writer`** writes back to front, so a nested message needs no size pass
-- **`Repeated`** collects repeated fields in place while decoding (an array push on JavaScript,
-  `append` on Go)
-- **`Decode`** has what generated decoders share, like building a `Map` from map entries
-- **`Fields`** lets a decoder for a message with many fields note where each one is first and
-  read the record afterwards
-- **`Error`**, **`Codec`** and **`Bytes`** (a `Uint8Array` on JavaScript, a `[]byte` on Go)
+You need `protoc`, and either Iris and Go 1.27 for the native plugin or Bun for the other one.
 
-`int64` fields are `Int64` from `int64`, which Iris turns into Go's `int64`. Maps are `Data.Map`.
+```
+iris go -p protoc-gen-purescript --entry Yoga.Protobuf.Plugin.Native.main
+protoc --plugin=protoc-gen-purescript=bin/protoc-gen-purescript --purescript_out=src foo.proto
+```
+
+`bin/protoc-gen-purescript` runs the native binary. For Bun, `spago build -p yoga-protobuf-plugin`
+and use `bin/protoc-gen-purescript-bun` instead. Both write exactly the same code.
+
+`foo.proto` in package `my.app` becomes `src/Yoga/Protobuf/Generated/My/App/Foo.purs`. Options go
+before the output directory, separated by commas:
+
+```
+protoc --purescript_out=module_prefix=MyApp.Proto,fields_threshold=12:src foo.proto
+```
+
+- `module_prefix` puts the modules somewhere else than under `Yoga.Protobuf.Generated`
+- `fields_threshold` is how many plain fields a message needs before it's decoded in two steps
+  (default 10, see below)
+
+The generated code needs these packages in your `spago.yaml`: `yoga-protobuf`, `prelude`, `effect`,
+`either`, `functions`, `int64`, `maybe`, `newtype`, `ordered-collections` and `variant`.
+
+## What you get
+
+For this:
+
+```proto
+message Person {
+  string name = 1;
+  optional int32 age = 2;
+  repeated Pet pets = 3;
+  map<string, string> labels = 4;
+  oneof contact {
+    string email = 5;
+    string phone = 6;
+  }
+}
+
+enum Pet {
+  PET_UNSPECIFIED = 0;
+  PET_DOG = 1;
+  PET_CAT = 2;
+}
+```
+
+you get
+
+```purescript
+type Person =
+  { name :: String
+  , age :: Maybe Int
+  , pets :: Array Pet
+  , labels :: Map String String
+  , contact :: Maybe (Variant (email :: String, phone :: String))
+  }
+
+data Pet = Unspecified | Dog | Cat | PetUnrecognized Int
+
+defaultPerson :: Person
+decodePerson :: Bytes -> Either DecodeError Person
+encodePerson :: Person -> Bytes
+personCodec :: Codec Person
+toPet :: Int -> Pet
+fromPet :: Pet -> Int
+```
+
+- every scalar type: `int32`, `sint32` and `sfixed32` are `Int`, `uint32` and `fixed32` are
+  `UInt32`, the 64-bit ones `Int64` or `UInt64`, `float` and `double` `Number`, `bytes` are
+  `Yoga.Protobuf.Bytes`
+- explicit presence (`optional`, message fields, proto2 fields) is a `Maybe`; proto2 `required`
+  fields aren't
+- `repeated` fields are arrays. Numbers, booleans and enums are packed when they should be, and
+  read either way
+- maps are `Data.Map`
+- a `oneof` is a `Maybe` of a `Variant` of its fields
+- enums are open: numbers the enum doesn't have are kept in `…Unrecognized`. If all values start
+  with the enum's name (`PET_`), that's left off. If two enums in a file would get the same
+  constructor, both keep their name in front (`ColourRed`, `LightRed`)
+- nested messages and enums are `Outer_Inner`
+- a message that contains itself is a newtype
+- types from other `.proto` files come from their modules
+- fields the decoder doesn't know are skipped
+- the encoder writes fields in the order of their numbers, and map entries by key, so you get the
+  same bytes as protobuf-es (protoc-gen-go puts `oneof` fields last, but otherwise matches too)
+
+A message with lots of plain fields is decoded in two steps: first note where each field starts,
+then read them all. With every field set that was faster from 5 fields up on both Go and Bun; from
+10 it's 10% faster on Go and 45% on Bun. Below that the plain loop wins for messages that leave
+most fields out.
+
+### Not there yet
+
+Editions, groups, extensions, services, proto2 default values (you get a `Nothing`), closed proto2
+enums (they're open like proto3's), merging a message field that appears twice (the last one
+wins), keeping unknown fields, JSON.
 
 ## Benchmarks
 
-Three messages from [bench/proto/bench.proto](bench/proto/bench.proto):
+Three messages from [bench/proto/bench.proto](bench/proto/bench.proto), with codecs generated by
+`protoc-gen-purescript`:
 
 - **nested**: a bit of everything in 164 bytes: numbers, an `int64`, strings, a packed field, a
   nested message, a map, repeated strings
 - **repeated-nested**: 1,000 small nested messages
 - **wide**: 50 fields of which the program reads three
 
-Median of three runs on an Apple M5 Max. Go 1.27, Bun 1.2.21, Iris 0.1.17-go.1.
+Median of five runs on an Apple M5 Max (that was busy with other things). Go 1.27, Bun 1.2.21,
+Iris 0.1.17-go.2.
 
 | Go (ns/op · allocs/op) | nested encode | nested decode | repeated-nested encode | repeated-nested decode | wide encode | wide decode |
 | --- | --- | --- | --- | --- | --- | --- |
-| yoga-protobuf (Iris) | 145 ns · 1 | 398 ns · 22 | 12,209 ns · 1 | 22,933 ns · 1011 | 254 ns · 1 | 415 ns · 11 |
-| protoc-gen-go | 614 ns · 21 | 704 ns · 36 | 23,504 ns · 1 | 44,013 ns · 2012 | 355 ns · 1 | 388 ns · 11 |
-| vtprotobuf | 174 ns · 1 | 298 ns · 18 | 6,363 ns · 1 | 21,359 ns · 2012 | 101 ns · 1 | 231 ns · 11 |
-| hyperpb | – | 242 ns · 2 | – | 16,726 ns · 1 | – | 318 ns · 2 |
-| hyperpb (profile-guided) | – | 238 ns · 2 | – | 15,503 ns · 1 | – | 319 ns · 2 |
+| yoga-protobuf (Iris) | 142 ns · 1 | 414 ns · 23 | 10,853 ns · 1 | 24,192 ns · 1011 | 249 ns · 1 | 439 ns · 11 |
+| protoc-gen-go | 639 ns · 21 | 735 ns · 36 | 23,961 ns · 1 | 44,895 ns · 2012 | 371 ns · 1 | 402 ns · 11 |
+| vtprotobuf | 182 ns · 1 | 312 ns · 18 | 6,776 ns · 1 | 21,598 ns · 2012 | 106 ns · 1 | 236 ns · 11 |
+| hyperpb | – | 250 ns · 2 | – | 17,427 ns · 1 | – | 331 ns · 2 |
+| hyperpb (profile-guided) | – | 258 ns · 2 | – | 16,473 ns · 1 | – | 335 ns · 2 |
 
 | Bun (ns/op) | nested encode | nested decode | repeated-nested encode | repeated-nested decode | wide encode | wide decode |
 | --- | --- | --- | --- | --- | --- | --- |
-| yoga-protobuf | 585 ns | 805 ns | 39,772 ns | 41,509 ns | 896 ns | 947 ns |
-| protobuf-es | 605 ns | 998 ns | 49,484 ns | 89,668 ns | 1,470 ns | 1,347 ns |
-| protobufjs (static) | 680 ns | 507 ns | 57,747 ns | 32,697 ns | 1,090 ns | 628 ns |
+| yoga-protobuf | 626 ns | 812 ns | 42,916 ns | 43,728 ns | 901 ns | 998 ns |
+| protobuf-es | 617 ns | 1,024 ns | 50,764 ns | 93,384 ns | 1,525 ns | 1,417 ns |
+| protobufjs (static) | 714 ns | 527 ns | 61,968 ns | 34,754 ns | 1,145 ns | 648 ns |
+
+The generated codecs are as fast as the hand-written ones from the first milestone: run
+alternately, every number is within 4% of theirs, and the Go encoders are 8 to 15% faster.
 
 hyperpb only decodes, into an arena it reuses. vtprotobuf doesn't check UTF-8 when it encodes;
-protoc-gen-go and this library do. For scale: the existing `protobuf` package took about 150 µs
-for an encode plus a decode of the nested message.
+protoc-gen-go and this library do.
 
-Still behind: vtprotobuf on encoding anything big or wide, protoc-gen-go and vtprotobuf on
-decoding the wide message on Go, and protobufjs on decoding on Bun.
+### The generator itself
+
+On Kubernetes' `core/v1` and the apimachinery protos it imports, plus the well-known types,
+`descriptor.proto`, `plugin.proto` and this repository's test schemas (a 1.2 MB request, 1.9 MB of
+PureScript out):
+
+| | per run | binary |
+| --- | --- | --- |
+| native (Iris) | 88 ms | 2.4 MB |
+| Bun | 326 ms | Bun (57 MB) and 3.7 MB of JavaScript |
+
+On a small file it's 16 ms against 69 ms, most of which is Bun starting up.
 
 ### Running them
 
@@ -85,3 +187,7 @@ spago build -p yoga-protobuf-test
 bun -e "import('./output-es/Test.Main/index.js').then(spec => spec.main())"
 iris run --go -p yoga-protobuf-test --main Test.Main
 ```
+
+They cover every generator feature with [spec/proto](spec/proto), against bytes protoc-gen-go and
+protobuf-es wrote ([spec/fixtures](spec/fixtures)). After changing the generator, `bin/regenerate`
+regenerates all the generated code and checks that the generator still generates itself.
