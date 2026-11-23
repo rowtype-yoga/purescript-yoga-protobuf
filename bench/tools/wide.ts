@@ -2,6 +2,10 @@
 // generator will emit, and the benchmark's sample. Fifty fields are too many to type by hand.
 //
 //   bun bench/tools/wide.ts
+//
+// A message with this many fields is decoded in two steps. Carrying fifty fields from one step of
+// a loop to the next costs every step on both backends, so the decoder's loop only notes where
+// each field is (Yoga.Protobuf.Fields), and then the record is read from those places.
 
 const fieldCount = 50;
 
@@ -23,14 +27,6 @@ const purescriptType: Record<Kind, string> = {
   bool: "Boolean",
 };
 
-const defaultValue: Record<Kind, string> = {
-  int32: "0",
-  string: '""',
-  double: "0.0",
-  int64: "zero",
-  bool: "false",
-};
-
 const wireType: Record<Kind, number> = { int32: 0, string: 2, double: 1, int64: 0, bool: 0 };
 
 const sampleValue = (number: number, kind: Kind): string => {
@@ -48,63 +44,20 @@ const sampleValue = (number: number, kind: Kind): string => {
   }
 };
 
-const names = fields.map((field) => field.name);
+// The wire type each field number has, -1 for numbers the message doesn't have.
+const wireTypes = [-1, ...fields.map(({ kind }) => wireType[kind])];
 
-const loopWith = (replaced: string, value: string) =>
-  `loop next ${names.map((name) => (name === replaced ? `(${value})` : name)).join(" ")}`;
+const readField = ({ number, name, kind }: (typeof fields)[number]) =>
+  kind === "string"
+    ? `${name}: runFn4 Fields.string input fields ${number} end`
+    : `${name}: runFn3 Fields.${kind} input fields ${number}`;
 
-const decodeCase = ({ number, name, kind }: (typeof fields)[number]) => {
-  const tag = (number << 3) | wireType[kind];
-  const lines = [`          ${tag} -> do`];
-  if (kind === "string") {
-    lines.push(
-      `            let payload = Wire.varintEnd input afterTag end`,
-      `            let next = Wire.delimitedEnd input afterTag payload end`,
-      `            if next < 0 then Left (failure next afterTag)`,
-      `            else do`,
-      `              let text = Wire.string input payload next`,
-      `              if text == Wire.invalidUtf8 then Left (InvalidUtf8 payload)`,
-      `              else ${loopWith(name, "text").replace("(text)", "text")}`,
-    );
-    return lines.join("\n");
-  }
-  const read = { int32: "Wire.varint32", double: "Wire.double", int64: "Wire.varint64", bool: "Wire.bool" }[kind];
-  const end = kind === "double" ? `Wire.fixedEnd afterTag 8 end` : `Wire.varintEnd input afterTag end`;
-  lines.push(
-    `            let next = ${end}`,
-    `            if next < 0 then Left (failure next afterTag)`,
-    `            else ${loopWith(name, `${read} input afterTag`)}`,
-  );
-  return lines.join("\n");
-};
+const strings = fields.filter(({ kind }) => kind === "string");
 
-const unknownField = [
-  `          tag -> do`,
-  `            let next = Wire.skip input tag afterTag end`,
-  `            if next < 0 then Left (failure next afterTag)`,
-  `            else loop next ${names.join(" ")}`,
-].join("\n");
+const utf8Check = ({ number, name }: (typeof fields)[number]) =>
+  `      else if wide.${name} == Wire.invalidUtf8 then Left (InvalidUtf8 (Fields.payloadStart input fields ${number} end))`;
 
-// purs-backend-es turns a case on an Int into a chain of ifs, so with many fields the generator
-// splits the fields into groups of at most eight by tag and finds the group by bisection.
-const groupSize = 8;
-
-const dispatch = (group: typeof fields, indent: string): string => {
-  if (group.length <= groupSize) {
-    const cases = group.map(decodeCase).join("\n") + "\n" + unknownField;
-    return `${indent}case tag of\n${cases.replace(/^ {10}/gm, indent + "  ")}`;
-  }
-  const half = Math.ceil(group.length / groupSize / 2) * groupSize;
-  const firstTag = (field: (typeof fields)[number]) => field.number << 3;
-  return [
-    `${indent}if tag < ${firstTag(group[half])} then`,
-    dispatch(group.slice(0, half), indent + "  "),
-    `${indent}else`,
-    dispatch(group.slice(half), indent + "  "),
-  ].join("\n");
-};
-
-const writeField =({ number, name, kind }: (typeof fields)[number]) => {
+const writeField = ({ number, name, kind }: (typeof fields)[number]) => {
   const tag = (number << 3) | wireType[kind];
   const condition = {
     int32: `wide.${name} /= 0`,
@@ -113,10 +66,9 @@ const writeField =({ number, name, kind }: (typeof fields)[number]) => {
     int64: `wide.${name} /= zero`,
     bool: `wide.${name}`,
   }[kind];
-  const write = { int32: "int32", string: "string", double: "double", int64: "int64", bool: "bool" }[kind];
   return [
     `  when (${condition}) do`,
-    `    Writer.${write} writer wide.${name}`,
+    `    Writer.${kind} writer wide.${name}`,
     `    Writer.tag writer ${tag}`,
   ].join("\n");
 };
@@ -132,13 +84,14 @@ module Bench.Wide
 import Prelude
 
 import Data.Either (Either(..))
-import Data.Function.Uncurried (mkFn3)
+import Data.Function.Uncurried (mkFn3, runFn3, runFn4)
 import Data.Int64 (Int64)
 import Data.Int64 as Int64
 import Effect (Effect)
 import Yoga.Protobuf.Bytes (Bytes)
 import Yoga.Protobuf.Decode (Reader, decodeMessage)
 import Yoga.Protobuf.Error (DecodeError(..), failure)
+import Yoga.Protobuf.Fields as Fields
 import Yoga.Protobuf.Wire as Wire
 import Yoga.Protobuf.Writer (Writer, encodeWith)
 import Yoga.Protobuf.Writer as Writer
@@ -161,15 +114,29 @@ sample =
 wideFrom :: Reader Wide
 wideFrom = mkFn3 \\input start end -> do
   let
-    loop position ${names.join(" ")}
-      | position >= end = Right { ${names.join(", ")} }
+    scan position fields
+      | position >= end = Right fields
       | otherwise = do
           let afterTag = Wire.varintEnd input position end
-          let tag = Wire.varint32 input position
           if afterTag < 0 then Left (failure afterTag position)
-          else
-${dispatch(fields, "            ")}
-  loop start ${fields.map(({ kind }) => defaultValue[kind]).join(" ")}
+          else do
+            let tag = Wire.varint32 input position
+            let next = Wire.skip input tag afterTag end
+            if next < 0 then Left (failure next afterTag)
+            else scan next (Fields.note fields wireTypes tag afterTag)
+  case scan start (Fields.new input ${fieldCount + 1}) of
+    Left error -> Left error
+    Right fields -> do
+      let
+        wide =
+          { ${fields.map(readField).join("\n          , ")}
+          }
+      if false then Left (InvalidUtf8 0)
+${strings.map(utf8Check).join("\n")}
+      else Right wide
+
+wireTypes :: Array Int
+wireTypes = [ ${wireTypes.join(", ")} ]
 
 writeWide :: Writer -> Wide -> Effect Unit
 writeWide writer wide = do
