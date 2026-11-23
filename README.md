@@ -35,12 +35,12 @@ and use `bin/protoc-gen-purescript-bun` instead. Both write exactly the same cod
 before the output directory, separated by commas:
 
 ```
-protoc --purescript_out=module_prefix=MyApp.Proto,fields_threshold=12:src foo.proto
+protoc --purescript_out=module_prefix=MyApp.Proto,fields_threshold=10:src foo.proto
 ```
 
 - `module_prefix` puts the modules somewhere else than under `Yoga.Protobuf.Generated`
-- `fields_threshold` is how many plain fields a message needs before it's decoded in two steps
-  (default 10, see below)
+- `fields_threshold` decodes messages with at least that many plain fields in two steps (off by
+  default, see below)
 
 The generated code needs these packages in your `spago.yaml`: `yoga-protobuf`, `prelude`, `effect`,
 `either`, `functions`, `int64`, `maybe`, `newtype`, `ordered-collections` and `variant`.
@@ -108,10 +108,14 @@ fromPet :: Pet -> Int
 - the encoder writes fields in the order of their numbers, and map entries by key, so you get the
   same bytes as protobuf-es (protoc-gen-go puts `oneof` fields last, but otherwise matches too)
 
-A message with lots of plain fields is decoded in two steps: first note where each field starts,
-then read them all. With every field set that was faster from 5 fields up on both Go and Bun; from
-10 it's 10% faster on Go and 45% on Bun. Below that the plain loop wins for messages that leave
-most fields out.
+Every message is decoded in one loop that reads a field per step. On Go that's the fastest way
+for any width: with 50 fields it's 385 ns against 430 for the other way, with 5 fields 32 against
+38, and the loop wins by even more when most fields are left out.
+
+The other way is `fields_threshold`: messages with at least that many plain fields are decoded in
+two steps, first noting where each field starts and then reading them all. If you only run on
+JavaScript, `fields_threshold=10` is worth it: on Bun two steps take half the time from 20 fields
+up (50 fields: 860 ns against 1,930).
 
 ### Not there yet
 
@@ -129,28 +133,35 @@ Three messages from [bench/proto/bench.proto](bench/proto/bench.proto), with cod
 - **repeated-nested**: 1,000 small nested messages
 - **wide**: 50 fields of which the program reads three
 
-Median of five runs on an Apple M5 Max (that was busy with other things). Go 1.27, Bun 1.2.21,
-Iris 0.1.17-go.2.
+Go is what we tune for. Median of seven runs on an Apple M5 Max (load average around 3 while
+it ran). Go 1.27, Iris 0.1.17-go.2.
 
 | Go (ns/op · allocs/op) | nested encode | nested decode | repeated-nested encode | repeated-nested decode | wide encode | wide decode |
 | --- | --- | --- | --- | --- | --- | --- |
-| yoga-protobuf (Iris) | 142 ns · 1 | 414 ns · 23 | 10,853 ns · 1 | 24,192 ns · 1011 | 249 ns · 1 | 439 ns · 11 |
-| protoc-gen-go | 639 ns · 21 | 735 ns · 36 | 23,961 ns · 1 | 44,895 ns · 2012 | 371 ns · 1 | 402 ns · 11 |
-| vtprotobuf | 182 ns · 1 | 312 ns · 18 | 6,776 ns · 1 | 21,598 ns · 2012 | 106 ns · 1 | 236 ns · 11 |
-| hyperpb | – | 250 ns · 2 | – | 17,427 ns · 1 | – | 331 ns · 2 |
-| hyperpb (profile-guided) | – | 258 ns · 2 | – | 16,473 ns · 1 | – | 335 ns · 2 |
+| yoga-protobuf (Iris) | 143 ns · 1 | 344 ns · 19 | 10,835 ns · 1 | 19,650 ns · 1009 | 245 ns · 1 | 357 ns · 11 |
+| protoc-gen-go | 645 ns · 21 | 730 ns · 36 | 24,536 ns · 1 | 45,768 ns · 2012 | 369 ns · 1 | 405 ns · 11 |
+| vtprotobuf | 182 ns · 1 | 315 ns · 18 | 6,751 ns · 1 | 22,025 ns · 2012 | 106 ns · 1 | 242 ns · 11 |
+| hyperpb | – | 255 ns · 2 | – | 17,559 ns · 1 | – | 334 ns · 2 |
+| hyperpb (profile-guided) | – | 254 ns · 2 | – | 16,374 ns · 1 | – | 333 ns · 2 |
+
+So: faster than protoc-gen-go everywhere, faster than vtprotobuf at encoding nested messages and
+decoding repeated ones, and slower than it on the rest. Some of that isn't a fair fight:
+
+- vtprotobuf doesn't check that strings are UTF-8, neither when it decodes nor when it encodes.
+  protoc-gen-go and this library do, as proto3 says to.
+- hyperpb only decodes, into an arena it reuses, and its strings point into the input. That's
+  where its 2 allocations come from.
+- a `map` field here is a `Data.Map`, a tree with a node per entry, where Go's maps are a couple
+  of allocations however many entries there are. That's most of the difference on nested.
+
+On Bun it's in between protobuf-es and protobufjs. By default wide decodes in a loop, which is the
+slow way on JavaScript; with `fields_threshold=10` it's about 1,000 ns.
 
 | Bun (ns/op) | nested encode | nested decode | repeated-nested encode | repeated-nested decode | wide encode | wide decode |
 | --- | --- | --- | --- | --- | --- | --- |
-| yoga-protobuf | 626 ns | 812 ns | 42,916 ns | 43,728 ns | 901 ns | 998 ns |
-| protobuf-es | 617 ns | 1,024 ns | 50,764 ns | 93,384 ns | 1,525 ns | 1,417 ns |
-| protobufjs (static) | 714 ns | 527 ns | 61,968 ns | 34,754 ns | 1,145 ns | 648 ns |
-
-The generated codecs are as fast as the hand-written ones from the first milestone: run
-alternately, every number is within 4% of theirs, and the Go encoders are 8 to 15% faster.
-
-hyperpb only decodes, into an arena it reuses. vtprotobuf doesn't check UTF-8 when it encodes;
-protoc-gen-go and this library do.
+| yoga-protobuf | 624 ns | 804 ns | 42,320 ns | 43,313 ns | 909 ns | 2,120 ns |
+| protobuf-es | 621 ns | 1,034 ns | 50,738 ns | 93,459 ns | 1,524 ns | 1,417 ns |
+| protobufjs (static) | 708 ns | 527 ns | 62,139 ns | 34,214 ns | 1,138 ns | 644 ns |
 
 ### The generator itself
 
@@ -173,8 +184,9 @@ You need Go, Bun, `protoc`, `spago`, `purs-backend-es` and `iris` on your `PATH`
 bench/run.sh
 ```
 
-It builds everything, runs each implementation three times (`RUNS=5 bench/run.sh` for more),
-prints the tables above and keeps the raw numbers in `bench/results`. Before measuring, the
+It builds everything, runs each implementation five times, one after the other in each round
+(`RUNS=9 bench/run.sh` for more), prints the tables above with the machine's load, and keeps the
+raw numbers in `bench/results`. Before measuring, the
 PureScript program checks that it reads what protoc-gen-go wrote for each sample and writes exactly
 those bytes back.
 
