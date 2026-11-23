@@ -33,11 +33,13 @@ module Yoga.Protobuf.Writer
   , string
   , bytes
   , eachDescending
+  , eachEntryDescending
   ) where
 
 import Prelude
 
 import Data.Array as Array
+import Data.Map.Internal (Map(..))
 import Data.Int.Bits (shl, shr, xor)
 import Data.Int64 (Int64)
 import Data.Int64 as Int64
@@ -51,16 +53,30 @@ import Yoga.Protobuf.Bytes (Bytes)
 foreign import data Writer :: Type
 
 -- | The bytes `write` writes for `value`.
+-- |
+-- | `write` may run more than once. On Go, a write that doesn't fit only notes that the writer
+-- | overflowed, which keeps the writes small enough to inline, and `write` starts over with
+-- | twice the room. Encoding is pure, so the bytes are the same.
 encodeWith :: forall a. (Writer -> a -> Effect Unit) -> a -> Bytes
-encodeWith write value = unsafePerformEffect do
-  writer <- acquire
-  write writer value
-  finish writer
+encodeWith write value = unsafePerformEffect (attempt 0)
   where
-  acquire = acquireImpl
-  finish writer = runEffectFn1 finishImpl writer
+  attempt capacity = do
+    writer <- runEffectFn1 acquireImpl capacity
+    write writer value
+    overflowed <- runEffectFn1 overflowedImpl writer
+    if overflowed then retry writer else runEffectFn1 finishImpl writer
+  retry writer = do
+    tooSmall <- runEffectFn1 capacityImpl writer
+    attempt (2 * tooSmall)
 
-foreign import acquireImpl :: Effect Writer
+-- | A writer with room for at least `capacity` bytes.
+foreign import acquireImpl :: EffectFn1 Int Writer
+
+foreign import overflowedImpl :: EffectFn1 Writer Boolean
+
+foreign import capacityImpl :: EffectFn1 Writer Int
+
+-- | The bytes written, after which the writer goes back to be reused.
 foreign import finishImpl :: EffectFn1 Writer Bytes
 
 -- | How many bytes have been written so far.
@@ -147,3 +163,15 @@ eachDescending values write = forE 0 count \index -> write (valueAt (count - 1 -
   where
   count = Array.length values
   valueAt index = unsafePartial (Array.unsafeIndex values index)
+
+-- | Runs `write` on a map's entries from the greatest key to the least, so that they come out
+-- | sorted by key.
+eachEntryDescending :: forall k v. Map k v -> (k -> v -> Effect Unit) -> Effect Unit
+eachEntryDescending entries write = visit entries
+  where
+  visit = case _ of
+    Leaf -> pure unit
+    Node _ _ key value left right -> do
+      visit right
+      write key value
+      visit left

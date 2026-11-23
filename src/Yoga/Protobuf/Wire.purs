@@ -23,6 +23,7 @@ module Yoga.Protobuf.Wire
   , utf8Valid
   , bytes
   , packedVarintsValid
+  , varintCount
   , zigzag32
   , zigzag64
   , truncated
@@ -134,6 +135,12 @@ packedVarintsValid :: Bytes -> Int -> Int -> Boolean
 packedVarintsValid input start end = runFn3 packedVarintsValidImpl input start end
 
 foreign import packedVarintsValidImpl :: Fn3 Bytes Int Int Boolean
+
+-- | How many varints end between `start` and `end`: how many values a packed field holds.
+varintCount :: Bytes -> Int -> Int -> Int
+varintCount input start end = runFn3 varintCountImpl input start end
+
+foreign import varintCountImpl :: Fn3 Bytes Int Int Int
 
 zigzag32 :: Int -> Int
 zigzag32 n = (n `zshr` 1) `xor` negate (n .&. 1)

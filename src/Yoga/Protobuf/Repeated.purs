@@ -6,6 +6,7 @@ module Yoga.Protobuf.Repeated
   ( Repeated
   , empty
   , snoc
+  , reserve
   , freeze
   ) where
 
@@ -22,6 +23,12 @@ snoc :: forall a. Repeated a -> a -> Repeated a
 snoc values value = runFn2 snocImpl values value
 
 foreign import snocImpl :: forall a. Fn2 (Repeated a) a (Repeated a)
+
+-- | Makes room for `count` more values, when the decoder knows how many are coming.
+reserve :: forall a. Repeated a -> Int -> Repeated a
+reserve values count = runFn2 reserveImpl values count
+
+foreign import reserveImpl :: forall a. Fn2 (Repeated a) Int (Repeated a)
 
 -- | The values as an array, without copying them.
 freeze :: forall a. Repeated a -> Array a

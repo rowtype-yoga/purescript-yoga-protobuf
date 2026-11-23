@@ -11,13 +11,19 @@ class Buffer {
 // One writer is kept for the next encode, so encoding a message allocates only its result.
 let spare = new Buffer();
 
-export const acquireImpl = () => {
-  const writer = spare;
-  if (writer === null) return new Buffer();
+export const acquireImpl = (capacity) => {
+  let writer = spare;
+  if (writer === null) writer = new Buffer();
   spare = null;
+  if (writer.bytes.length < capacity) writer.bytes = new Uint8Array(capacity);
   writer.position = writer.bytes.length;
   return writer;
 };
+
+// JavaScript's writes make room as they go, so they never overflow.
+export const overflowedImpl = (writer) => false;
+
+export const capacityImpl = (writer) => writer.bytes.length;
 
 export const finishImpl = (writer) => {
   const result = writer.bytes.slice(writer.position);

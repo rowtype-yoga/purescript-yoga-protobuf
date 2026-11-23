@@ -8,4 +8,7 @@ export const snocImpl = (values, value) => {
   return values;
 };
 
+// JavaScript arrays grow cheaply enough on their own.
+export const reserveImpl = (values, count) => values;
+
 export const freezeImpl = (values) => values;

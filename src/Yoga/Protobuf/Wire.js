@@ -2,7 +2,8 @@ const TRUNCATED = -1;
 const MALFORMED_VARINT = -2;
 const INVALID_WIRE_TYPE = -3;
 const MAX_GROUP_DEPTH = 100;
-const LONG_STRING = 32;
+// Above this many bytes, TextDecoder is faster than decoding by hand.
+const LONG_STRING = 16;
 
 export const varintEndImpl = (input, position, end) => {
   if (position < end && input[position] < 0x80) return position + 1;
@@ -209,6 +210,12 @@ const codePoint = (input, index, width) => {
 };
 
 export const bytesImpl = (input, start, end) => input.slice(start, end);
+
+export const varintCountImpl = (input, start, end) => {
+  let count = 0;
+  for (let index = start; index < end; index++) if (input[index] < 0x80) count++;
+  return count;
+};
 
 export const packedVarintsValidImpl = (input, start, end) => {
   let run = 0;

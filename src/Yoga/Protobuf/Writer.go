@@ -9,23 +9,35 @@ import (
 )
 
 // Buffer fills from the back: bytes[position:] is what has been written.
+//
+// The small writes make no room when they don't fit, which would take a call that keeps Go from
+// inlining them. They note that the buffer overflowed and write over it from the end again, and
+// Yoga.Protobuf.Writer.encodeWith encodes again with a buffer twice the size.
 type Buffer struct {
-	bytes    []byte
-	position int
+	bytes      []byte
+	position   int
+	overflowed bool
 }
 
 type Writer = *Buffer
 
 const initialCapacity = 1024
 
-// Writers are pooled, so encoding a message allocates only its result.
 var writers = sync.Pool{New: func() any { return &Buffer{bytes: make([]byte, initialCapacity)} }}
 
-func AcquireImpl() *Buffer {
+func AcquireImpl(capacity int32) *Buffer {
 	writer := writers.Get().(*Buffer)
+	if len(writer.bytes) < int(capacity) {
+		writer.bytes = make([]byte, capacity)
+	}
 	writer.position = len(writer.bytes)
+	writer.overflowed = false
 	return writer
 }
+
+func OverflowedImpl(writer *Buffer) bool { return writer.overflowed }
+
+func CapacityImpl(writer *Buffer) int32 { return int32(len(writer.bytes)) }
 
 func FinishImpl(writer *Buffer) []byte {
 	result := make([]byte, len(writer.bytes)-writer.position)
@@ -36,16 +48,11 @@ func FinishImpl(writer *Buffer) []byte {
 
 func WrittenImpl(writer *Buffer) int32 { return int32(len(writer.bytes) - writer.position) }
 
-func (writer *Buffer) reserve(count int) {
-	if writer.position >= count {
-		return
+func (writer *Buffer) room(count int) {
+	if writer.position < count {
+		writer.position = len(writer.bytes)
+		writer.overflowed = true
 	}
-	used := len(writer.bytes) - writer.position
-	capacity := max(2*len(writer.bytes), used+count)
-	grown := make([]byte, capacity)
-	copy(grown[capacity-used:], writer.bytes[writer.position:])
-	writer.bytes = grown
-	writer.position = capacity - used
 }
 
 func LengthSinceImpl(writer *Buffer, mark int32) {
@@ -53,17 +60,8 @@ func LengthSinceImpl(writer *Buffer, mark int32) {
 }
 
 func (writer *Buffer) uvarint(value uint64) {
-	if value < 0x80 && writer.position > 0 {
-		writer.position--
-		writer.bytes[writer.position] = byte(value)
-		return
-	}
-	writer.uvarintSlow(value)
-}
-
-func (writer *Buffer) uvarintSlow(value uint64) {
+	writer.room(10)
 	size := (bits.Len64(value|1) + 6) / 7
-	writer.reserve(size)
 	writer.position -= size
 	at := writer.position
 	for value >= 0x80 {
@@ -83,25 +81,25 @@ func Int64Impl(writer *Buffer, low int32, high int32) {
 }
 
 func Fixed32Impl(writer *Buffer, value int32) {
-	writer.reserve(4)
+	writer.room(4)
 	writer.position -= 4
 	binary.LittleEndian.PutUint32(writer.bytes[writer.position:], uint32(value))
 }
 
 func Fixed64Impl(writer *Buffer, low int32, high int32) {
-	writer.reserve(8)
+	writer.room(8)
 	writer.position -= 8
 	binary.LittleEndian.PutUint64(writer.bytes[writer.position:], uint64(uint32(high))<<32|uint64(uint32(low)))
 }
 
 func FloatImpl(writer *Buffer, value float64) {
-	writer.reserve(4)
+	writer.room(4)
 	writer.position -= 4
 	binary.LittleEndian.PutUint32(writer.bytes[writer.position:], math.Float32bits(float32(value)))
 }
 
 func DoubleImpl(writer *Buffer, value float64) {
-	writer.reserve(8)
+	writer.room(8)
 	writer.position -= 8
 	binary.LittleEndian.PutUint64(writer.bytes[writer.position:], math.Float64bits(value))
 }
@@ -112,7 +110,7 @@ func StringImpl(writer *Buffer, text string) {
 	if !utf8.ValidString(text) {
 		text = replaceSurrogates(text)
 	}
-	writer.reserve(len(text) + 5)
+	writer.reserve(len(text))
 	writer.position -= len(text)
 	copy(writer.bytes[writer.position:], text)
 	writer.uvarint(uint64(len(text)))
@@ -133,8 +131,21 @@ func replaceSurrogates(text string) string {
 }
 
 func BytesImpl(writer *Buffer, value []byte) {
-	writer.reserve(len(value) + 5)
+	writer.reserve(len(value))
 	writer.position -= len(value)
 	copy(writer.bytes[writer.position:], value)
 	writer.uvarint(uint64(len(value)))
+}
+
+// reserve makes room right away for strings and bytes, whose writes aren't inlined anyway.
+func (writer *Buffer) reserve(count int) {
+	if writer.position >= count {
+		return
+	}
+	used := len(writer.bytes) - writer.position
+	capacity := max(2*len(writer.bytes), used+count+initialCapacity)
+	grown := make([]byte, capacity)
+	copy(grown[capacity-used:], writer.bytes[writer.position:])
+	writer.bytes = grown
+	writer.position = capacity - used
 }

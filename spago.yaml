@@ -5,6 +5,7 @@ package:
     - arrays
     - effect
     - either
+    - foldable-traversable
     - functions
     - int64
     - integers

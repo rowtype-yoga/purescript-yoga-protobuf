@@ -13,24 +13,17 @@ const (
 	maxGroupDepth         = 100
 )
 
-func VarintEndImpl(input []byte, position int32, end int32) int32 {
-	if position < end && input[position] < 0x80 {
-		return position + 1
-	}
-	if position+1 < end && input[position+1] < 0x80 {
-		return position + 2
-	}
-	return varintEndSlow(input, position, end)
-}
+// The reading functions are small loops without calls, which Go inlines into the decoders.
+// Their first iteration is the fast path for a one-byte varint.
 
-func varintEndSlow(input []byte, position int32, end int32) int32 {
+func VarintEndImpl(input []byte, position int32, end int32) int32 {
 	limit := min(end, position+10)
 	for index := position; index < limit; index++ {
 		if input[index] < 0x80 {
 			return index + 1
 		}
 	}
-	if limit == end && end-position < 10 {
+	if end-position < 10 {
 		return truncated
 	}
 	return malformedVarint
@@ -40,31 +33,17 @@ func DelimitedEndImpl(input []byte, position int32, start int32, end int32) int3
 	if start < 0 {
 		return start
 	}
-	if first := input[position]; first < 0x80 {
-		if int32(first) <= end-start {
-			return start + int32(first)
-		}
-		return truncated
-	}
-	length := lengthOf(input, position, start)
-	if length < 0 || length > end-start {
-		return truncated
-	}
-	return start + length
-}
-
-func lengthOf(input []byte, position int32, start int32) int32 {
 	if start-position > 5 {
-		return -1
+		return truncated
 	}
 	var length uint64
 	for index := start - 1; index >= position; index-- {
 		length = length<<7 | uint64(input[index]&0x7f)
 	}
-	if length > math.MaxInt32 {
-		return -1
+	if length > uint64(end-start) {
+		return truncated
 	}
-	return int32(length)
+	return start + int32(length)
 }
 
 func SkipImpl(input []byte, tag int32, position int32, end int32) int32 {
@@ -122,44 +101,35 @@ func skipGroup(input []byte, fieldNumber int32, position int32, end int32, depth
 }
 
 func Varint32Impl(input []byte, position int32) int32 {
-	if uint(position) < uint(len(input)) && input[position] < 0x80 {
-		return int32(input[position])
-	}
-	return int32(uint32(varintSlow(input, position)))
+	return int32(uint32(varint(input, position)))
 }
 
-func varintSlow(input []byte, position int32) uint64 {
+func varint(input []byte, position int32) uint64 {
 	var result uint64
-	for shift := uint(0); shift < 64 && int(position) < len(input); shift += 7 {
+	for shift := uint(0); shift < 64 && uint(position) < uint(len(input)); shift += 7 {
 		byte_ := input[position]
-		position++
 		result |= uint64(byte_&0x7f) << shift
 		if byte_ < 0x80 {
-			return result
+			break
 		}
+		position++
 	}
 	return result
 }
 
-func Varint64Impl(_ func(int32, int32) int64, input []byte, position int32) int64 {
-	if uint(position) < uint(len(input)) && input[position] < 0x80 {
-		return int64(input[position])
-	}
-	return int64(varintSlow(input, position))
+// Varint64Impl ignores the constructor JavaScript needs for its Int64s. F is whatever Iris
+// makes of an Fn2.
+func Varint64Impl[F any](_ F, input []byte, position int32) int64 {
+	return int64(varint(input, position))
 }
 
-func BoolImpl(input []byte, position int32) bool {
-	if uint(position) < uint(len(input)) && input[position] < 0x80 {
-		return input[position] != 0
-	}
-	return varintSlow(input, position) != 0
-}
+func BoolImpl(input []byte, position int32) bool { return varint(input, position) != 0 }
 
 func Fixed32Impl(input []byte, position int32) int32 {
 	return int32(binary.LittleEndian.Uint32(input[position:]))
 }
 
-func Fixed64Impl(_ func(int32, int32) int64, input []byte, position int32) int64 {
+func Fixed64Impl[F any](_ F, input []byte, position int32) int64 {
 	return int64(binary.LittleEndian.Uint64(input[position:]))
 }
 
@@ -188,6 +158,16 @@ func Utf8ValidImpl(input []byte, start int32, end int32) bool {
 
 func BytesImpl(input []byte, start int32, end int32) []byte {
 	return append([]byte(nil), input[start:end]...)
+}
+
+func VarintCountImpl(input []byte, start int32, end int32) int32 {
+	count := int32(0)
+	for _, byte_ := range input[start:end] {
+		if byte_ < 0x80 {
+			count++
+		}
+	}
+	return count
 }
 
 func PackedVarintsValidImpl(input []byte, start int32, end int32) bool {
