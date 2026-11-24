@@ -17,6 +17,7 @@
 module Yoga.Protobuf.Writer
   ( Writer
   , encodeWith
+  , encodeWithEffect
   , written
   , lengthSince
   , tag
@@ -59,7 +60,12 @@ foreign import data Writer :: Type
 -- | overflowed, which keeps the writes small enough to inline, and `write` starts over with
 -- | twice the room. Encoding is pure, so the bytes are the same.
 encodeWith :: forall a. (Writer -> a -> Effect Unit) -> a -> Bytes
-encodeWith write value = unsafePerformEffect (attempt 0)
+encodeWith write value = unsafePerformEffect (encodeWithEffect write value)
+
+-- | `encodeWith` as an action, for code that encodes right before it sends: the encoding happens
+-- | when the action runs, not when it's made.
+encodeWithEffect :: forall a. (Writer -> a -> Effect Unit) -> a -> Effect Bytes
+encodeWithEffect write value = attempt 0
   where
   attempt capacity = do
     writer <- runEffectFn1 acquireImpl capacity

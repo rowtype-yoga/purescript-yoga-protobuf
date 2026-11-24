@@ -4,6 +4,7 @@ module Yoga.Protobuf.Codec
   , codec
   , decode
   , encode
+  , encodeEffect
   ) where
 
 import Prelude
@@ -15,7 +16,7 @@ import Effect (Effect)
 import Yoga.Protobuf.Bytes (Bytes)
 import Yoga.Protobuf.Decode (Reader, decodeMessage)
 import Yoga.Protobuf.Error (DecodeError)
-import Yoga.Protobuf.Writer (Writer, encodeWith)
+import Yoga.Protobuf.Writer (Writer, encodeWith, encodeWithEffect)
 
 -- | How to read a message from the bytes between two positions and write it back to front.
 newtype Codec a = Codec { read :: Reader a, write :: Writer -> a -> Effect Unit }
@@ -33,3 +34,8 @@ decode messageCodec input = decodeMessage (un Codec messageCodec).read input
 -- | The message's encoding.
 encode :: forall a. Codec a -> a -> Bytes
 encode messageCodec value = encodeWith (un Codec messageCodec).write value
+
+-- | Encodes the message when the action runs: for code that sends each message as it encodes
+-- | it.
+encodeEffect :: forall a. Codec a -> a -> Effect Bytes
+encodeEffect messageCodec value = encodeWithEffect (un Codec messageCodec).write value
