@@ -8,6 +8,8 @@
 -- |   it, every message is decoded in a loop, which is faster on Go for messages of any width:
 -- |   with 50 fields 385 ns against 430, with 5 fields 32 against 38. On Bun two steps win
 -- |   from 10 fields up, so a JavaScript-only project may want `fields_threshold=10`.
+-- | - `services=none` leaves services out. Otherwise each becomes a row of its methods and a
+-- |   value with their routes and codecs, for `yoga-connect`'s gRPC server and client.
 module Yoga.Protobuf.Plugin.Generate
   ( run
   , generate
@@ -49,9 +51,10 @@ generate request = case schemaOf prefix request.fileToGenerate request.protoFile
   parameter key = map _.value (Array.find (\entry -> entry.key == key) parameters)
   prefix = fromMaybe "Yoga.Protobuf.Generated" (parameter "module_prefix")
   fieldsThreshold = parameter "fields_threshold" >>= Int.fromString
+  services = parameter "services" /= Just "none"
   file model = defaultCodeGeneratorResponse_File
     { name = Just (Names.modulePath model.moduleName)
-    , content = Just (moduleFor { fieldsThreshold } model)
+    , content = Just (moduleFor { fieldsThreshold, services } model)
     }
 
 -- | `FEATURE_PROTO3_OPTIONAL`: the generator knows `optional` in proto3 files.

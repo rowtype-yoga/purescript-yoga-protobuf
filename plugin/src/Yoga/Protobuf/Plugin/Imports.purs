@@ -58,6 +58,7 @@ librariesFor tokens =
   , Qualified "Data.Variant" "Variant"
   , Names "Effect" [ named "Effect" ]
   , Names "Type.Proxy" [ { tokens: [ "Proxy" ], name: "Proxy(..)" } ]
+  , Qualified "Yoga.Connect.Service" "Connect"
   , Names "Yoga.Protobuf.Bytes" [ named "Bytes" ]
   , Qualified "Yoga.Protobuf.Bytes" "Bytes"
   , Names "Yoga.Protobuf.Codec" [ named "Codec", named "codec" ]

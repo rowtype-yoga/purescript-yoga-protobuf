@@ -16,6 +16,9 @@ module Yoga.Protobuf.Plugin.Schema
   , Reference
   , MapEntry
   , Import
+  , ServiceModel
+  , MethodModel
+  , Streaming(..)
   , schemaOf
   , packable
   ) where
@@ -36,7 +39,7 @@ import Data.String.Pattern (Pattern(..))
 import Data.Traversable (traverse)
 import Data.Tuple.Nested ((/\))
 
-import Yoga.Protobuf.Plugin.Google.Protobuf.Descriptor (DescriptorProto(..), EnumDescriptorProto, FieldDescriptorProto, FieldDescriptorProto_Type(..), FileDescriptorProto)
+import Yoga.Protobuf.Plugin.Google.Protobuf.Descriptor (DescriptorProto(..), EnumDescriptorProto, FieldDescriptorProto, FieldDescriptorProto_Type(..), FileDescriptorProto, MethodDescriptorProto, ServiceDescriptorProto)
 import Yoga.Protobuf.Plugin.Google.Protobuf.Descriptor as Descriptor
 import Yoga.Protobuf.Plugin.Names as Names
 
@@ -72,7 +75,31 @@ type FileModel =
   , imports :: Array Import
   , messages :: Array MessageModel
   , enums :: Array EnumModel
+  , services :: Array ServiceModel
   }
+
+-- | A service: `typeName` is the row of its methods, `valueName` the value with their routes and
+-- | codecs.
+type ServiceModel =
+  { fullName :: String
+  , typeName :: String
+  , valueName :: String
+  , methods :: Array MethodModel
+  }
+
+-- | A method: its record `label`, its route, `/greeter.v1.Greeter/SayHello`, and its messages.
+type MethodModel =
+  { label :: String
+  , procedure :: String
+  , streaming :: Streaming
+  , request :: Reference
+  , response :: Reference
+  }
+
+-- | Which sides of a method send a stream.
+data Streaming = NoStreams | ServerStreams | ClientStreams | BothStreams
+
+derive instance Eq Streaming
 
 -- | Another generated module this one refers to, and its alias.
 type Import = { moduleName :: String, alias :: String }
@@ -332,27 +359,32 @@ fileModel :: Symbols -> String -> FileDescriptorProto -> Either GeneratorError F
 fileModel symbols prefix file = do
   when (file.syntax == Just "editions") (Left (EditionsUnsupported fileName))
   messages <- traverse (messageModel symbols module_ imports proto3) (Array.filter (not <<< isMapEntry) (messagesOf file))
+  services <- traverse (serviceModel symbols module_ imports taken (packagePrefix file)) file.service
   pure
     { protoName: fileName
     , moduleName: module_
     , imports
     , messages
-    , enums: map (enumModel symbols) (enumsOf file)
+    , enums
+    , services
     }
   where
   fileName = fromMaybe "" file.name
   module_ = moduleOf prefix file
-  imports = importsOf symbols module_ (messagesOf file)
+  enums = map (enumModel symbols) (enumsOf file)
+  taken = map (Names.typeName <<< _.nesting) (messagesOf file) <> map _.name enums
+  imports = importsOf symbols module_ (messagesOf file) (Array.concatMap methodTypes file.service)
+  methodTypes serviceDescriptor = Array.concatMap (\method -> Array.catMaybes [ method.inputType, method.outputType ]) serviceDescriptor.method
   proto3 = file.syntax == Just "proto3"
   isMapEntry found = isJust (Map.lookup found.fullName symbols >>= _.mapEntry)
 
 -- | The modules the file's fields refer to, each under the shortest alias that's free.
-importsOf :: Symbols -> String -> Array (Found DescriptorProto) -> Array Import
-importsOf symbols module_ messages = foldl add [] (Array.nub (Array.mapMaybe otherModule fields))
+importsOf :: Symbols -> String -> Array (Found DescriptorProto) -> Array String -> Array Import
+importsOf symbols module_ messages methodTypes = foldl add [] (Array.nub (Array.mapMaybe otherModule typeNames))
   where
   fields = Array.concatMap (\found -> (un DescriptorProto found.descriptor).field) messages
-  otherModule field = do
-    typeName <- field.typeName
+  typeNames = Array.mapMaybe _.typeName fields <> methodTypes
+  otherModule typeName = do
     symbol <- Map.lookup typeName symbols
     if symbol.moduleName == module_ then Nothing else Just symbol.moduleName
   add imports moduleName = Array.snoc imports { moduleName, alias: aliasFor imports moduleName }
@@ -361,7 +393,7 @@ importsOf symbols module_ messages = foldl add [] (Array.nub (Array.mapMaybe oth
     let candidates = map (\count -> String.joinWith "" (Array.drop (Array.length segments - count) segments)) (Array.range 1 (Array.length segments))
     let taken = map _.alias imports <> fixedAliases
     fromMaybe (String.joinWith "" segments) (Array.find (\alias -> not (Array.elem alias taken)) candidates)
-  fixedAliases = [ "Array", "Bytes", "Codec", "Decode", "Fields", "Int64", "Map", "Repeated", "Variant", "Wire", "Writer" ]
+  fixedAliases = [ "Array", "Bytes", "Codec", "Connect", "Decode", "Fields", "Int64", "Map", "Repeated", "Variant", "Wire", "Writer" ]
 
 aliasOf :: Array Import -> String -> String
 aliasOf imports moduleName = maybe "" (\found -> found.alias <> ".") (Array.find (\entry -> entry.moduleName == moduleName) imports)
@@ -471,6 +503,43 @@ valueTypeOf symbols module_ imports field = case field.type of
   reference = do
     typeName <- note (MissingTypeName fieldName) field.typeName
     symbol <- note (UnknownType fieldName typeName) (Map.lookup typeName symbols)
+    pure
+      { qualifier: if symbol.moduleName == module_ then "" else aliasOf imports symbol.moduleName
+      , name: symbol.name
+      , recursive: symbol.recursive
+      , zero: symbol.zero
+      }
+
+-- | A service's row type has its name, unless a message or enum of the file has that name too;
+-- | then it's `GreeterService`.
+serviceModel :: Symbols -> String -> Array Import -> Array String -> String -> ServiceDescriptorProto -> Either GeneratorError ServiceModel
+serviceModel symbols module_ imports taken scope serviceDescriptor = do
+  methods <- traverse methodModel serviceDescriptor.method
+  pure { fullName, typeName, valueName: Names.lowerFirst typeName, methods }
+  where
+  name = fromMaybe "" serviceDescriptor.name
+  fullName = String.drop 1 (scope <> "." <> name)
+  typeName = if Array.elem (Names.upperFirst name) taken then Names.upperFirst name <> "Service" else Names.upperFirst name
+  methodModel :: MethodDescriptorProto -> Either GeneratorError MethodModel
+  methodModel method = do
+    let methodName = fromMaybe "" method.name
+    request <- reference methodName method.inputType
+    response <- reference methodName method.outputType
+    pure
+      { label: Names.recordLabel methodName
+      , procedure: "/" <> fullName <> "/" <> methodName
+      , streaming: streamingOf (method.clientStreaming == Just true) (method.serverStreaming == Just true)
+      , request
+      , response
+      }
+  streamingOf clientStreams serverStreams
+    | clientStreams && serverStreams = BothStreams
+    | clientStreams = ClientStreams
+    | serverStreams = ServerStreams
+    | otherwise = NoStreams
+  reference methodName messageTypeName = do
+    found <- note (MissingTypeName methodName) messageTypeName
+    symbol <- note (UnknownType methodName found) (Map.lookup found symbols)
     pure
       { qualifier: if symbol.moduleName == module_ then "" else aliasOf imports symbol.moduleName
       , name: symbol.name
