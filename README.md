@@ -19,6 +19,21 @@ Milestone 2: the code generator, `protoc-gen-purescript`. It's written in PureSc
 a native binary (Iris) or on Bun, and generates its own `descriptor.proto` and `plugin.proto`
 decoders. proto3 and proto2 work; editions, groups and extensions don't yet.
 
+## Installing
+
+It's not on the registry yet, so grab it from GitHub in your `spago.yaml`:
+
+```yaml
+workspace:
+  extraPackages:
+    yoga-protobuf:
+      git: https://github.com/rowtype-yoga/purescript-yoga-protobuf.git
+      ref: v0.1.0
+```
+
+That's all you need on JavaScript. On Go you need Iris 0.1.18-go.2 or newer
+(`brew install spago i-am-the-slime/tap/iris`) and Go 1.27.
+
 ## Generating code
 
 You need `protoc`, and either Iris and Go 1.27 for the native plugin

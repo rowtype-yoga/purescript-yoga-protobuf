@@ -814,17 +814,17 @@
     "extra_packages": {
       "go-bytes": {
         "git": "https://github.com/i-am-the-slime/purescript-go.git",
-        "ref": "353775e4356f0146917c3b0ace5a99d489009190",
+        "ref": "v0.2.0",
         "subdir": "packages/go-bytes"
       },
       "go-io": {
         "git": "https://github.com/i-am-the-slime/purescript-go.git",
-        "ref": "353775e4356f0146917c3b0ace5a99d489009190",
+        "ref": "v0.2.0",
         "subdir": "packages/go-io"
       },
       "go-os": {
         "git": "https://github.com/i-am-the-slime/purescript-go.git",
-        "ref": "353775e4356f0146917c3b0ace5a99d489009190",
+        "ref": "v0.2.0",
         "subdir": "packages/go-os"
       }
     }
@@ -1167,7 +1167,7 @@
     "go-bytes": {
       "type": "git",
       "url": "https://github.com/i-am-the-slime/purescript-go.git",
-      "rev": "353775e4356f0146917c3b0ace5a99d489009190",
+      "rev": "9d97993edc0e42166b1135e7a48e6fdb0890c47a",
       "subdir": "packages/go-bytes",
       "dependencies": [
         "newtype",
@@ -1177,11 +1177,12 @@
     "go-io": {
       "type": "git",
       "url": "https://github.com/i-am-the-slime/purescript-go.git",
-      "rev": "353775e4356f0146917c3b0ace5a99d489009190",
+      "rev": "9d97993edc0e42166b1135e7a48e6fdb0890c47a",
       "subdir": "packages/go-io",
       "dependencies": [
         "aff",
         "arrays",
+        "console",
         "control",
         "datetime",
         "effect",
@@ -1200,7 +1201,7 @@
     "go-os": {
       "type": "git",
       "url": "https://github.com/i-am-the-slime/purescript-go.git",
-      "rev": "353775e4356f0146917c3b0ace5a99d489009190",
+      "rev": "9d97993edc0e42166b1135e7a48e6fdb0890c47a",
       "subdir": "packages/go-os",
       "dependencies": [
         "aff",
