@@ -1,0 +1,27 @@
+package:
+  name: order-report
+  dependencies:
+    - arrays
+    - datetime
+    - effect
+    - either
+    - exceptions
+    - foldable-traversable
+    - functions
+    - go-os
+    - int64
+    - integers
+    - maybe
+    - newtype
+    - now
+    - ordered-collections
+    - prelude
+    - refs
+    - strings
+    - tuples
+    - yoga-protobuf
+  run:
+    main: Main
+workspace:
+  packageSet:
+    url: https://raw.githubusercontent.com/rowtype-yoga/purescript-go-package-sets/go-0.1.18-20261125.1/packages.json

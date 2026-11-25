@@ -1,0 +1,44 @@
+syntax = "proto3";
+package shop;
+
+option go_package = "example.com/order-report/shop";
+
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_PLACED = 1;
+  STATUS_SHIPPED = 2;
+  STATUS_CANCELLED = 3;
+}
+
+message LineItem {
+  string sku = 1;
+  int32 quantity = 2;
+  int32 unit_price_cents = 3;
+}
+
+message Order {
+  int32 id = 1;
+  string customer = 2;
+  Status status = 3;
+  repeated LineItem items = 4;
+  optional string coupon = 5;
+}
+
+// A file of orders. Two order logs one after the other are one order log with both lists, so
+// the file can be written a chunk at a time.
+message OrderLog {
+  repeated Order orders = 1;
+}
+
+message CustomerTotal {
+  string customer = 1;
+  int64 revenue_cents = 2;
+  int32 orders = 3;
+}
+
+message Report {
+  int32 orders_read = 1;
+  int32 orders_shipped = 2;
+  int64 revenue_cents = 3;
+  repeated CustomerTotal top_customers = 4;
+}
