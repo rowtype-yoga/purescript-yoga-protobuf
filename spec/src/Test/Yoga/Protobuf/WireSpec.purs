@@ -109,8 +109,10 @@ spec = describe "Yoga.Protobuf.Wire" do
 
   describe "zigzag" do
     it "maps 1 to -1 and 4294967294 to 2147483647" do
-      map Wire.zigzag32 [ 0, 1, 2, -2, -1 ] `shouldEqual` [ 0, -1, 1, top, bottom ]
+      map Wire.zigzag32 [ 0, 1, 2, -2, -1 ] `shouldEqual` [ 0, -1, 1, largestInt32, smallestInt32 ]
   where
+  largestInt32 = 2147483647
+  smallestInt32 = -2147483647 - 1
   endOf numbers = Wire.varintEnd (bytesOf numbers) 0 (Array.length numbers)
   delimitedEndOf numbers = do
     let input = bytesOf numbers

@@ -19,7 +19,7 @@ import Prelude
 
 import Data.Array as Array
 import Data.Foldable (foldMap)
-import Data.Int.Bits (shl, (.|.))
+import Data.Int.Bits (shl, (.&.), (.|.))
 import Data.Maybe (Maybe(..))
 import Data.String as String
 import Data.String.Pattern (Pattern(..))
@@ -123,7 +123,10 @@ wireNumber = case _ of
 
 -- | The tag of a field: its number and wire type.
 tagOf :: Int -> WireType -> Int
-tagOf number wire = (number `shl` 3) .|. wireNumber wire
+tagOf number wire = lowBits .|. signBit
+  where
+  lowBits = ((number .&. 0x0FFFFFFF) `shl` 3) .|. wireNumber wire
+  signBit = if number .&. 0x10000000 == 0 then 0 else -2147483647 - 1
 
 -- | A record's fields one per line, or on one line if they're few and short.
 recordLines :: Array String -> Array String

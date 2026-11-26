@@ -8,16 +8,16 @@ import (
 )
 
 const (
-	truncated       int32 = -1
-	malformedVarint int32 = -2
-	invalidWireType int32 = -3
-	maxGroupDepth         = 100
+	truncated       int = -1
+	malformedVarint int = -2
+	invalidWireType int = -3
+	maxGroupDepth       = 100
 )
 
 // The reading functions are small loops without calls, which Go inlines into the decoders.
 // Their first iteration is the fast path for a one-byte varint.
 
-func VarintEndImpl(input []byte, position int32, end int32) int32 {
+func VarintEndImpl(input []byte, position int, end int) int {
 	limit := min(end, position+10)
 	for index := position; index < limit; index++ {
 		if input[index] < 0x80 {
@@ -30,7 +30,7 @@ func VarintEndImpl(input []byte, position int32, end int32) int32 {
 	return malformedVarint
 }
 
-func DelimitedEndImpl(input []byte, position int32, start int32, end int32) int32 {
+func DelimitedEndImpl(input []byte, position int, start int, end int) int {
 	if start < 0 {
 		return start
 	}
@@ -44,14 +44,14 @@ func DelimitedEndImpl(input []byte, position int32, start int32, end int32) int3
 	if length > uint64(end-start) {
 		return truncated
 	}
-	return start + int32(length)
+	return start + int(length)
 }
 
-func SkipImpl(input []byte, tag int32, position int32, end int32) int32 {
+func SkipImpl(input []byte, tag int, position int, end int) int {
 	return skipField(input, tag, position, end, 0)
 }
 
-func skipField(input []byte, tag int32, position int32, end int32, depth int) int32 {
+func skipField(input []byte, tag int, position int, end int, depth int) int {
 	if uint32(tag)>>3 == 0 {
 		return invalidWireType
 	}
@@ -66,7 +66,7 @@ func skipField(input []byte, tag int32, position int32, end int32, depth int) in
 	case 2:
 		return DelimitedEndImpl(input, position, VarintEndImpl(input, position, end), end)
 	case 3:
-		return skipGroup(input, int32(uint32(tag)>>3), position, end, depth+1)
+		return skipGroup(input, int(uint32(tag)>>3), position, end, depth+1)
 	case 5:
 		if end-position < 4 {
 			return truncated
@@ -77,7 +77,7 @@ func skipField(input []byte, tag int32, position int32, end int32, depth int) in
 	}
 }
 
-func skipGroup(input []byte, fieldNumber int32, position int32, end int32, depth int) int32 {
+func skipGroup(input []byte, fieldNumber int, position int, end int, depth int) int {
 	if depth > maxGroupDepth {
 		return invalidWireType
 	}
@@ -89,7 +89,7 @@ func skipGroup(input []byte, fieldNumber int32, position int32, end int32, depth
 		}
 		tag := Varint32Impl(input, at)
 		if tag&7 == 4 {
-			if int32(uint32(tag)>>3) == fieldNumber {
+			if int(uint32(tag)>>3) == fieldNumber {
 				return afterTag
 			}
 			return invalidWireType
@@ -101,11 +101,11 @@ func skipGroup(input []byte, fieldNumber int32, position int32, end int32, depth
 	}
 }
 
-func Varint32Impl(input []byte, position int32) int32 {
-	return int32(uint32(varint(input, position)))
+func Varint32Impl(input []byte, position int) int {
+	return int(int32(uint32(varint(input, position))))
 }
 
-func varint(input []byte, position int32) uint64 {
+func varint(input []byte, position int) uint64 {
 	var result uint64
 	for shift := uint(0); shift < 64 && uint(position) < uint(len(input)); shift += 7 {
 		byte_ := input[position]
@@ -120,32 +120,32 @@ func varint(input []byte, position int32) uint64 {
 
 // Varint64Impl ignores the constructor JavaScript needs for its Int64s. F is whatever Iris
 // makes of an Fn2.
-func Varint64Impl[F any](_ F, input []byte, position int32) int64 {
+func Varint64Impl[F any](_ F, input []byte, position int) int64 {
 	return int64(varint(input, position))
 }
 
-func BoolImpl(input []byte, position int32) bool { return varint(input, position) != 0 }
+func BoolImpl(input []byte, position int) bool { return varint(input, position) != 0 }
 
-func Fixed32Impl(input []byte, position int32) int32 {
-	return int32(binary.LittleEndian.Uint32(input[position:]))
+func Fixed32Impl(input []byte, position int) int {
+	return int(int32(binary.LittleEndian.Uint32(input[position:])))
 }
 
-func Fixed64Impl[F any](_ F, input []byte, position int32) int64 {
+func Fixed64Impl[F any](_ F, input []byte, position int) int64 {
 	return int64(binary.LittleEndian.Uint64(input[position:]))
 }
 
-func FloatImpl(input []byte, position int32) float64 {
+func FloatImpl(input []byte, position int) float64 {
 	return float64(math.Float32frombits(binary.LittleEndian.Uint32(input[position:])))
 }
 
-func DoubleImpl(input []byte, position int32) float64 {
+func DoubleImpl(input []byte, position int) float64 {
 	return math.Float64frombits(binary.LittleEndian.Uint64(input[position:]))
 }
 
 // InvalidUtf8Impl is a lone surrogate in WTF-8, as Iris keeps strings. No UTF-8 decodes to it.
 var InvalidUtf8Impl = "\xed\xa0\x80"
 
-func StringImpl(input []byte, start int32, end int32) string {
+func StringImpl(input []byte, start int, end int) string {
 	text := input[start:end]
 	if valid(text) {
 		return string(text)
@@ -153,7 +153,7 @@ func StringImpl(input []byte, start int32, end int32) string {
 	return InvalidUtf8Impl
 }
 
-func Utf8ValidImpl(input []byte, start int32, end int32) bool {
+func Utf8ValidImpl(input []byte, start int, end int) bool {
 	return valid(input[start:end])
 }
 
@@ -176,12 +176,12 @@ func ascii(text []byte) bool {
 	return bits&0x8080808080808080 == 0
 }
 
-func BytesImpl(input []byte, start int32, end int32) []byte {
+func BytesImpl(input []byte, start int, end int) []byte {
 	return append([]byte(nil), input[start:end]...)
 }
 
-func VarintCountImpl(input []byte, start int32, end int32) int32 {
-	count := int32(0)
+func VarintCountImpl(input []byte, start int, end int) int {
+	count := 0
 	for _, byte_ := range input[start:end] {
 		if byte_ < 0x80 {
 			count++
@@ -190,15 +190,15 @@ func VarintCountImpl(input []byte, start int32, end int32) int32 {
 	return count
 }
 
-func PackedInt32Impl(input []byte, start int32, end int32, values []int32) []int32 {
-	values = slices.Grow(values, int(VarintCountImpl(input, start, end)))
+func PackedInt32Impl(input []byte, start int, end int, values []int) []int {
+	values = slices.Grow(values, VarintCountImpl(input, start, end))
 	for position := start; position < end; position = VarintEndImpl(input, position, end) {
 		values = append(values, Varint32Impl(input, position))
 	}
 	return values
 }
 
-func PackedVarintsValidImpl(input []byte, start int32, end int32) bool {
+func PackedVarintsValidImpl(input []byte, start int, end int) bool {
 	run := 0
 	for _, byte_ := range input[start:end] {
 		if byte_ < 0x80 {

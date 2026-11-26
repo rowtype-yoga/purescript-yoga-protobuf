@@ -25,9 +25,9 @@ const initialCapacity = 1024
 
 var writers = sync.Pool{New: func() any { return &Buffer{bytes: make([]byte, initialCapacity)} }}
 
-func AcquireImpl(capacity int32) *Buffer {
+func AcquireImpl(capacity int) *Buffer {
 	writer := writers.Get().(*Buffer)
-	if len(writer.bytes) < int(capacity) {
+	if len(writer.bytes) < capacity {
 		writer.bytes = make([]byte, capacity)
 	}
 	writer.position = len(writer.bytes)
@@ -37,7 +37,7 @@ func AcquireImpl(capacity int32) *Buffer {
 
 func OverflowedImpl(writer *Buffer) bool { return writer.overflowed }
 
-func CapacityImpl(writer *Buffer) int32 { return int32(len(writer.bytes)) }
+func CapacityImpl(writer *Buffer) int { return len(writer.bytes) }
 
 func FinishImpl(writer *Buffer) []byte {
 	result := make([]byte, len(writer.bytes)-writer.position)
@@ -46,7 +46,7 @@ func FinishImpl(writer *Buffer) []byte {
 	return result
 }
 
-func WrittenImpl(writer *Buffer) int32 { return int32(len(writer.bytes) - writer.position) }
+func WrittenImpl(writer *Buffer) int { return len(writer.bytes) - writer.position }
 
 func (writer *Buffer) room(count int) {
 	if writer.position < count {
@@ -55,8 +55,8 @@ func (writer *Buffer) room(count int) {
 	}
 }
 
-func LengthSinceImpl(writer *Buffer, mark int32) {
-	writer.uvarint(uint64(len(writer.bytes) - writer.position - int(mark)))
+func LengthSinceImpl(writer *Buffer, mark int) {
+	writer.uvarint(uint64(len(writer.bytes) - writer.position - mark))
 }
 
 func (writer *Buffer) uvarint(value uint64) {
@@ -72,21 +72,21 @@ func (writer *Buffer) uvarint(value uint64) {
 	writer.bytes[at] = byte(value)
 }
 
-func Uint32Impl(writer *Buffer, value int32) { writer.uvarint(uint64(uint32(value))) }
+func Uint32Impl(writer *Buffer, value int) { writer.uvarint(uint64(uint32(value))) }
 
-func Int32Impl(writer *Buffer, value int32) { writer.uvarint(uint64(int64(value))) }
+func Int32Impl(writer *Buffer, value int) { writer.uvarint(uint64(int64(int32(value)))) }
 
-func Int64Impl(writer *Buffer, low int32, high int32) {
+func Int64Impl(writer *Buffer, low int, high int) {
 	writer.uvarint(uint64(uint32(high))<<32 | uint64(uint32(low)))
 }
 
-func Fixed32Impl(writer *Buffer, value int32) {
+func Fixed32Impl(writer *Buffer, value int) {
 	writer.room(4)
 	writer.position -= 4
 	binary.LittleEndian.PutUint32(writer.bytes[writer.position:], uint32(value))
 }
 
-func Fixed64Impl(writer *Buffer, low int32, high int32) {
+func Fixed64Impl(writer *Buffer, low int, high int) {
 	writer.room(8)
 	writer.position -= 8
 	binary.LittleEndian.PutUint64(writer.bytes[writer.position:], uint64(uint32(high))<<32|uint64(uint32(low)))

@@ -71,9 +71,9 @@ protoc --plugin=protoc-gen-purescript=bin/protoc-gen-purescript \
 
 ## Running it
 
-You need googoo 0.1.18-go.3 or newer and Go 1.27 (`brew install spago i-am-the-slime/tap/googoo`).
+You need googoo 0.1.18-go.5 or newer and Go 1.27 (`brew install spago i-am-the-slime/tap/googoo`).
 It gets its packages from the
-[Go package set](https://github.com/rowtype-yoga/purescript-go-package-sets) `go-0.1.18-20261126`.
+[Go package set](https://github.com/rowtype-yoga/purescript-go-package-sets) `go-0.1.18-20261126.3`.
 
 ```bash
 cd examples/order-report

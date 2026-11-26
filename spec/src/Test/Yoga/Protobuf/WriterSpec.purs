@@ -18,7 +18,7 @@ spec :: Spec Unit
 spec = describe "Yoga.Protobuf.Writer" do
   describe "int32" do
     it "writes varints that varint32 reads back" do
-      for_ [ 0, 1, 127, 128, 300, top, -1, bottom ] \number ->
+      for_ [ 0, 1, 127, 128, 300, largestInt32, -1, smallestInt32 ] \number ->
         Wire.varint32 (encodeWith Writer.int32 number) 0 `shouldEqual` number
     it "writes a negative number in ten bytes" do
       Bytes.length (encodeWith Writer.int32 (-1)) `shouldEqual` 10
@@ -35,7 +35,7 @@ spec = describe "Yoga.Protobuf.Writer" do
 
   describe "sint32 and sint64" do
     it "writes zigzag varints that sint32 reads back" do
-      for_ [ 0, -1, 1, bottom, top ] \number ->
+      for_ [ 0, -1, 1, smallestInt32, largestInt32 ] \number ->
         Wire.sint32 (encodeWith Writer.sint32 number) 0 `shouldEqual` number
     it "writes -1 as 01" do
       encodeWith Writer.sint32 (-1) `shouldEqual` Bytes.fromArray [ 0x01 ]
@@ -77,6 +77,8 @@ spec = describe "Yoga.Protobuf.Writer" do
       encodeWith (\writer numbers -> Writer.eachDescending numbers (Writer.int32 writer)) [ 1, 2, 3 ]
         `shouldEqual` Bytes.fromArray [ 1, 2, 3 ]
   where
+  largestInt32 = 2147483647
+  smallestInt32 = -2147483647 - 1
   loneSurrogate = Wire.invalidUtf8
   int64s =[ zero, one, negate one, Int64.fromInt 2147483647 * Int64.fromInt 4, bottom, top ] :: Array Int64
   longText = Array.foldMap (const "long text, é and 𝄞 ") (Array.range 1 200)
