@@ -83,10 +83,10 @@ googoo run --go -- report orders.pb shipped.pb report.pb
 
 ```
 wrote 1000000 orders to orders.pb
-decode  164 ms
-ship  36 ms
-total  97 ms
-encode  42 ms
+decode  165 ms
+ship  35 ms
+total  87 ms
+encode  35 ms
 1000000 orders, 700000 shipped, 3500 customers
   customer-4325  $143967.10 in 200 orders
   customer-3125  $143720.40 in 200 orders
@@ -109,22 +109,22 @@ go run . report orders.pb shipped.pb report.pb
 
 ## Against protoc-gen-go
 
-Both programs time their steps the same way. Medians of 22 runs, the two programs taking turns,
-on an Apple M5 Max with Go 1.27 and Iris 0.1.18-go.2 (the machine had other work going on, load
-average around 25 to 55, so take the last digit with a pinch of salt):
+Both programs time their steps the same way. Medians of 11 runs, the two programs taking turns,
+on an Apple M5 Max with Go 1.27 and googoo 0.1.18-go.5 (the machine had other work going on, load
+average around 11, so take the last digit with a pinch of salt):
 
 | | decode 64 MB | ship | total | encode 45 MB | whole run (`time`) |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| yoga-protobuf | 164 ms | 36 ms | 97 ms | 42 ms | 0.62 s |
-| protoc-gen-go | 245 ms | 12 ms | 9 ms | 96 ms | 0.69 s |
+| yoga-protobuf | 158 ms | 26 ms | 87 ms | 36 ms | 0.32 s |
+| protoc-gen-go | 240 ms | 11 ms | 9 ms | 90 ms | 0.37 s |
 
-- **Decoding is 1.5× faster and encoding 2.3× faster** than protoc-gen-go: the part this library
+- **Decoding is 1.5× faster and encoding 2.5× faster** than protoc-gen-go: the part this library
   does.
 - **The rest is slower**, and it isn't protobuf. `total` builds a `Data.Map` of 3,500 customers
   one order at a time, a balanced tree with a string comparison per level, where Go updates a hash
   map in place. `ship` copies the 700,000 shipped orders into a new array of records, where Go
   keeps pointers to the ones it decoded.
-- Over the whole process, reading the file included, that comes out at about 10% faster.
+- Over the whole process, reading the file included, that comes out at about 15% faster.
 
 ### Encode in chunks
 
@@ -134,8 +134,8 @@ in a row are one `OrderLog` with both lists, so the file is byte for byte what o
 fit, encodes it again with twice the room. For one 45 MB message that's 17 attempts. Each 500
 order chunk fits after a few doublings, and the writer it borrows is kept for the next one.
 
-With one `encodeOrderLog { orders: shipped }` instead, encoding takes 270 to 900 ms instead of
-42, and the whole run 0.96 s against 0.69 for protoc-gen-go. protoc-gen-go doesn't have this
+With one `encodeOrderLog { orders: shipped }` instead, encoding takes about 205 ms instead of
+36, and the whole run 0.50 s against 0.37 for protoc-gen-go. protoc-gen-go doesn't have this
 problem because it measures the message before writing it.
 
 ### Running the comparison
@@ -152,5 +152,5 @@ cmp shipped.pb go-shipped.pb && cmp report.pb go-report.pb
 ## The Go googoo writes
 
 `googoo go out` puts the Go for this program in `out/`. 0.1.18-go.3 gave it shorter names than
-0.1.18-go.2 did: 14.6 characters on average instead of 17.3, the longest 37 instead of 55. There
-was no `switch either` to get rid of, before or after.
+0.1.18-go.2 did: 14.6 characters on average instead of 17.3, the longest 37 instead of 55.
+0.1.18-go.5 writes the same names. There was never a `switch either` to get rid of.

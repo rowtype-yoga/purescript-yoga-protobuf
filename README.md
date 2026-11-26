@@ -1,7 +1,7 @@
 # purescript-yoga-protobuf
 
 Fast protocol buffers for PureScript. The same code runs on JavaScript and, compiled with
-[Iris](https://github.com/i-am-the-slime/iris-go-backend), as native Go.
+[googoo](https://github.com/i-am-the-slime/iris-go-backend), as native Go.
 
 You point `protoc` at your `.proto` files and get a PureScript module per file. Messages are plain
 records, decoding gives you an `Either DecodeError`, and broken input is a `Left`, never an
@@ -15,7 +15,7 @@ encodeMsg :: Msg -> Bytes
 
 [examples/order-report](examples/order-report) is a whole program: a million orders from a
 `.proto`, decoded, filtered, totalled and encoded again, next to the same program with
-protoc-gen-go. It decodes 1.5× and encodes 2.3× faster, and writes the same bytes.
+protoc-gen-go. It decodes 1.5× and encodes 2.5× faster, and writes the same bytes.
 
 ## Status
 
