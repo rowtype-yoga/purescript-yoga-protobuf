@@ -20,7 +20,7 @@ protoc-gen-go. It decodes 1.5× and encodes 2.3× faster, and writes the same by
 ## Status
 
 Milestone 2: the code generator, `protoc-gen-purescript`. It's written in PureScript too, runs as
-a native binary (Iris) or on Bun, and generates its own `descriptor.proto` and `plugin.proto`
+a native binary (googoo) or on Bun, and generates its own `descriptor.proto` and `plugin.proto`
 decoders. proto3 and proto2 work; editions, groups and extensions don't yet.
 
 ## Installing
@@ -35,16 +35,16 @@ workspace:
       ref: v0.1.0
 ```
 
-That's all you need on JavaScript. On Go you need Iris 0.1.18-go.2 or newer
-(`brew install spago i-am-the-slime/tap/iris`) and Go 1.27.
+That's all you need on JavaScript. On Go you need googoo 0.1.18-go.3 or newer
+(`brew install spago i-am-the-slime/tap/googoo`) and Go 1.27.
 
 ## Generating code
 
-You need `protoc`, and either Iris and Go 1.27 for the native plugin
-(`brew install spago i-am-the-slime/tap/iris`) or Bun for the other one.
+You need `protoc`, and either googoo and Go 1.27 for the native plugin
+(`brew install spago i-am-the-slime/tap/googoo`) or Bun for the other one.
 
 ```
-iris go -p protoc-gen-purescript --entry Yoga.Protobuf.Plugin.Native.main
+googoo go -p protoc-gen-purescript --entry Yoga.Protobuf.Plugin.Native.main
 protoc --plugin=protoc-gen-purescript=bin/protoc-gen-purescript --purescript_out=src foo.proto
 ```
 
@@ -217,7 +217,7 @@ The specs are a program, so they run on both backends:
 ```
 spago build -p yoga-protobuf-test
 bun -e "import('./output-es/Test.Main/index.js').then(spec => spec.main())"
-iris run --go -p yoga-protobuf-test --main Test.Main
+googoo run --go -p yoga-protobuf-test --main Test.Main
 ```
 
 They cover every generator feature with [spec/proto](spec/proto), against bytes protoc-gen-go and

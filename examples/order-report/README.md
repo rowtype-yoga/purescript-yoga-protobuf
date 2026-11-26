@@ -63,7 +63,7 @@ shipWithCoupons orders = orders # Array.filter (_.status >>> eq Shipped) <#> app
 To make the PureScript again after changing the `.proto`, from the repository's root:
 
 ```bash
-iris go -p protoc-gen-purescript --entry Yoga.Protobuf.Plugin.Native.main
+googoo go -p protoc-gen-purescript --entry Yoga.Protobuf.Plugin.Native.main
 protoc --plugin=protoc-gen-purescript=bin/protoc-gen-purescript \
   --purescript_out=module_prefix=Proto:examples/order-report/src \
   -I examples/order-report/proto examples/order-report/proto/shop.proto
@@ -71,14 +71,14 @@ protoc --plugin=protoc-gen-purescript=bin/protoc-gen-purescript \
 
 ## Running it
 
-You need Iris 0.1.18-go.2 or newer and Go 1.27 (`brew install spago i-am-the-slime/tap/iris`). It
-gets its packages from the
-[Go package set](https://github.com/rowtype-yoga/purescript-go-package-sets) `go-0.1.18-20261125.1`.
+You need googoo 0.1.18-go.3 or newer and Go 1.27 (`brew install spago i-am-the-slime/tap/googoo`).
+It gets its packages from the
+[Go package set](https://github.com/rowtype-yoga/purescript-go-package-sets) `go-0.1.18-20261126`.
 
 ```bash
 cd examples/order-report
-iris run --go -- generate 1000000 orders.pb
-iris run --go -- report orders.pb shipped.pb report.pb
+googoo run --go -- generate 1000000 orders.pb
+googoo run --go -- report orders.pb shipped.pb report.pb
 ```
 
 ```
@@ -141,10 +141,16 @@ problem because it measures the message before writing it.
 ### Running the comparison
 
 ```bash
-iris go                                         # builds .spago/go/order-report/bin/order-report
+googoo go                                       # builds .spago/go/order-report/bin/order-report
 (cd go && go build -o ../.spago/protoc-gen-go .)
 .spago/go/order-report/bin/order-report generate 1000000 orders.pb
 .spago/go/order-report/bin/order-report report orders.pb shipped.pb report.pb
 .spago/protoc-gen-go report orders.pb go-shipped.pb go-report.pb
 cmp shipped.pb go-shipped.pb && cmp report.pb go-report.pb
 ```
+
+## The Go googoo writes
+
+`googoo go out` puts the Go for this program in `out/`. 0.1.18-go.3 gave it shorter names than
+0.1.18-go.2 did: 14.6 characters on average instead of 17.3, the longest 37 instead of 55. There
+was no `switch either` to get rid of, before or after.

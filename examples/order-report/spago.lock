@@ -33,7 +33,7 @@
     },
     "package_set": {
       "address": {
-        "url": "https://raw.githubusercontent.com/rowtype-yoga/purescript-go-package-sets/go-0.1.18-20261125.1/packages.json"
+        "url": "https://raw.githubusercontent.com/rowtype-yoga/purescript-go-package-sets/go-0.1.18-20261126/packages.json"
       },
       "compiler": ">=0.15.15 <0.16.0",
       "content": {
