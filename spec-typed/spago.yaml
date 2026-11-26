@@ -1,0 +1,19 @@
+package:
+  name: yoga-protobuf-typed-test
+  description: The specs of the types protoc-gen-purescript generates for yoga-connect, which need googoo, run on Go
+  dependencies:
+    - aff
+    - effect
+    - either
+    - int64
+    - maybe
+    - newtype
+    - ordered-collections
+    - prelude
+    - spec
+    - strings
+    - tuples
+    - variant
+    - yoga-connect
+    - yoga-protobuf
+    - yoga-protobuf-plugin

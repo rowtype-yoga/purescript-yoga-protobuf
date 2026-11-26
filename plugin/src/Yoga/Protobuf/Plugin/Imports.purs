@@ -2,6 +2,7 @@
 -- | compiles without warnings.
 module Yoga.Protobuf.Plugin.Imports
   ( importsFor
+  , typeImportsFor
   ) where
 
 import Prelude
@@ -87,3 +88,39 @@ tokensOf text = Set.fromFoldable (String.split (Pattern " ") (CodeUnits.fromChar
     | (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') = character
     | character == '_' || character == '\'' || character == '.' = character
     | otherwise = ' '
+
+-- | The imports of a module of types: `Prelude` if it `derives` instances, the libraries, then
+-- | the other generated modules. A library type with the name of one of the module's `ownNames`
+-- | is imported qualified, and only used so.
+typeImportsFor :: { derives :: Boolean, ownNames :: Array String } -> Array Import -> Array String -> Array String
+typeImportsFor { derives, ownNames } generated body = prelude <> libraries <> (if Array.null localImports then [] else [ "" ] <> localImports)
+  where
+  prelude = if derives then [ "import Prelude", "" ] else []
+  code = String.joinWith "\n" (Array.filter (not <<< String.contains (Pattern "-- |")) body)
+  tokens = (if String.contains (Pattern " := ") code then Set.insert ":=" else identity) (tokensOf code)
+  libraries = Array.sort (typeLibraries >>= importsOfLibrary)
+  importsOfLibrary library = Array.catMaybes [ unqualified library, qualified library ]
+  unqualified library = case Array.filter (\entry -> Set.member entry.token tokens && not (Array.elem entry.token ownNames)) library.names of
+    [] -> Nothing
+    found -> Just ("import " <> library.moduleName <> " (" <> String.joinWith ", " (map _.name found) <> ")")
+  qualified library = case library.alias of
+    Just alias | Array.any (\entry -> Set.member (alias <> "." <> entry.token) tokens) library.names -> Just ("import " <> library.moduleName <> " as " <> alias)
+    _ -> Nothing
+  localImports = sorted (map (\entry -> Qualified entry.moduleName entry.alias) generated)
+  sorted candidates = map _.text (Array.sortWith _.moduleName (Array.mapMaybe (used tokens) candidates))
+
+-- | The libraries a module of types may use, and the alias of those whose types a generated
+-- | type's name can clash with.
+typeLibraries :: Array { moduleName :: String, alias :: Maybe String, names :: Array { token :: String, name :: String } }
+typeLibraries =
+  [ { moduleName: "Data.Generic.Rep", alias: Nothing, names: [ { token: "Generic", name: "class Generic" } ] }
+  , { moduleName: "Data.Int64", alias: Just "Int64", names: [ named "Int64" ] }
+  , { moduleName: "Data.Maybe", alias: Just "Maybe", names: [ named "Maybe" ] }
+  , { moduleName: "Data.Show.Generic", alias: Nothing, names: [ named "genericShow" ] }
+  , { moduleName: "Yoga.Connect.Message", alias: Just "Connect", names: [ { token: ":=", name: "type (:=)" }, named "Message", named "Named", named "OneOf" ] }
+  , { moduleName: "Yoga.Connect.Schema", alias: Just "Connect", names: [ named "BidiStream", named "ClientStream", named "ServerStream", named "Service", named "Unary" ] }
+  , { moduleName: "Yoga.Protobuf.Bytes", alias: Just "Bytes", names: [ named "Bytes" ] }
+  , { moduleName: "Yoga.Protobuf.Unsigned", alias: Just "Unsigned", names: [ named "UInt32", named "UInt64" ] }
+  ]
+  where
+  named name = { token: name, name }

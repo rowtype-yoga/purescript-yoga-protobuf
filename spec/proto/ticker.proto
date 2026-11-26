@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package ticker.v1;
+
+// The symbols to watch.
+message Subscribe {
+  repeated string symbols = 1;
+}
+
+// A symbol's latest price, and its moving average.
+message Quote {
+  string symbol = 1;
+  double price = 2;
+  double average = 3;
+}
+
+// Buys (a positive quantity) or sells (a negative one) at the limit price.
+message Trade {
+  string symbol = 1;
+  int32 quantity = 2;
+  double limit = 3;
+}
+
+// A trade that went through, and the position it left.
+message Fill {
+  string symbol = 1;
+  int32 quantity = 2;
+  double price = 3;
+  int32 position = 4;
+}
+
+service Ticker {
+  // The quotes of every symbol, merged, as they come.
+  rpc Watch(Subscribe) returns (stream Quote);
+  // Fills each trade as it arrives; a trade that can't go through ends the session.
+  rpc Trade(stream ticker.v1.Trade) returns (stream Fill);
+}

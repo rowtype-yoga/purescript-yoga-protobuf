@@ -36,7 +36,7 @@ import Data.Set (Set)
 import Data.Set as Set
 import Data.String as String
 import Data.String.Pattern (Pattern(..))
-import Data.Traversable (traverse)
+import Data.Traversable (sequence, traverse)
 import Data.Tuple.Nested ((/\))
 
 import Yoga.Protobuf.Plugin.Google.Protobuf.Descriptor (DescriptorProto(..), EnumDescriptorProto, FieldDescriptorProto, FieldDescriptorProto_Type(..), FileDescriptorProto, MethodDescriptorProto, ServiceDescriptorProto)
@@ -72,6 +72,7 @@ describe = case _ of
 type FileModel =
   { protoName :: String
   , moduleName :: String
+  , proto3 :: Boolean
   , imports :: Array Import
   , messages :: Array MessageModel
   , enums :: Array EnumModel
@@ -79,9 +80,10 @@ type FileModel =
   }
 
 -- | A service: `typeName` is the row of its methods, `valueName` the value with their routes and
--- | codecs.
+-- | codecs. `comment` is what the `.proto` says above it.
 type ServiceModel =
   { fullName :: String
+  , comment :: Maybe String
   , typeName :: String
   , valueName :: String
   , methods :: Array MethodModel
@@ -90,6 +92,8 @@ type ServiceModel =
 -- | A method: its record `label`, its route, `/greeter.v1.Greeter/SayHello`, and its messages.
 type MethodModel =
   { label :: String
+  , name :: String
+  , comment :: Maybe String
   , procedure :: String
   , streaming :: Streaming
   , request :: Reference
@@ -108,6 +112,7 @@ type Import = { moduleName :: String, alias :: String }
 -- | that refers to itself is `recursive`, and becomes a newtype.
 type MessageModel =
   { fullName :: String
+  , comment :: Maybe String
   , name :: String
   , recursive :: Boolean
   , members :: Array Member
@@ -119,11 +124,13 @@ data Member
   = Plain Field
   | Oneof { label :: String, variable :: String, fields :: Array Field }
 
--- | A field: its record `label`, the decoder's local `variable` for it, which isn't a keyword.
+-- | A field: its record `label`, the decoder's local `variable` for it, which isn't a keyword,
+-- | and whether the `.proto` says `optional`.
 type Field =
   { label :: String
   , variable :: String
   , number :: Int
+  , declaredOptional :: Boolean
   , value :: ValueType
   , shape :: Shape
   }
@@ -146,8 +153,9 @@ data Packing = Packed | Expanded
 
 derive instance Eq Packing
 
--- | A `map<k, v>` field's entries, which the decoder reads with `reader`.
-type MapEntry = { reader :: String, key :: ValueType, value :: ValueType }
+-- | A `map<k, v>` field's entries, which the decoder reads with `reader`, and the name protoc
+-- | gives their message, `LabelsEntry`.
+type MapEntry = { reader :: String, protoName :: String, key :: ValueType, value :: ValueType }
 
 -- | The protocol buffer type of a value.
 data ValueType
@@ -173,12 +181,14 @@ derive instance Eq ValueType
 
 -- | A message or enum type as the generated module refers to it: `qualifier` is empty or the
 -- | alias of the module it's from, with a dot. `zero` is the first constructor of an enum.
-type Reference = { qualifier :: String, name :: String, recursive :: Boolean, zero :: String }
+-- | `fullName` is its protocol buffer name, `ticker.v1.Quote`.
+type Reference = { qualifier :: String, name :: String, fullName :: String, recursive :: Boolean, zero :: String }
 
 -- | An enum, with its constructors in the order of its values and the one for numbers it
 -- | doesn't know.
 type EnumModel =
   { fullName :: String
+  , comment :: Maybe String
   , name :: String
   , constructors :: Array { constructor :: String, number :: Int }
   , unrecognized :: String
@@ -226,8 +236,9 @@ type Declaration =
 type Symbols = Map String Declaration
 
 -- | A message or enum found walking a file, with its fully qualified protocol buffer name
--- | (`.google.protobuf.DescriptorProto`) and the names it's nested in.
-type Found a = { fullName :: String, nesting :: Array String, descriptor :: a }
+-- | (`.google.protobuf.DescriptorProto`), the names it's nested in, and its `path` in the file's
+-- | source code info, which is where its comments are.
+type Found a = { fullName :: String, nesting :: Array String, path :: Array Int, descriptor :: a }
 
 symbolTable :: String -> Array FileDescriptorProto -> Symbols
 symbolTable prefix files = Map.fromFoldable (Array.concatMap symbolsOf files)
@@ -269,22 +280,26 @@ moduleOf :: String -> FileDescriptorProto -> String
 moduleOf prefix file = Names.moduleName prefix (fromMaybe "" file.package) (fromMaybe "" file.name)
 
 messagesOf :: FileDescriptorProto -> Array (Found DescriptorProto)
-messagesOf file = Array.concatMap (walk (packagePrefix file) []) file.messageType
+messagesOf file = Array.concat (Array.mapWithIndex (walk (packagePrefix file) [] [ messageTypeField ]) file.messageType)
   where
-  walk scope nesting message = do
+  walk scope nesting within index message = do
     let record = un DescriptorProto message
     let name = fromMaybe "" record.name
-    let found = { fullName: scope <> "." <> name, nesting: Array.snoc nesting name, descriptor: message }
-    [ found ] <> Array.concatMap (walk found.fullName found.nesting) record.nestedType
+    let found = { fullName: scope <> "." <> name, nesting: Array.snoc nesting name, path: within <> [ index ], descriptor: message }
+    [ found ] <> Array.concat (Array.mapWithIndex (walk found.fullName found.nesting (found.path <> [ nestedTypeField ])) record.nestedType)
+  messageTypeField = 4
+  nestedTypeField = 3
 
 enumsOf :: FileDescriptorProto -> Array (Found EnumDescriptorProto)
-enumsOf file = map (top (packagePrefix file)) file.enumType <> Array.concatMap nested (messagesOf file)
+enumsOf file = Array.mapWithIndex top file.enumType <> Array.concatMap nested (messagesOf file)
   where
-  top scope enum = found scope [] enum
-  nested message = map (found message.fullName message.nesting) (un DescriptorProto message.descriptor).enumType
-  found scope nesting enum = do
+  top index enum = found (packagePrefix file) [] [ enumTypeField, index ] enum
+  nested message = Array.mapWithIndex (\index enum -> found message.fullName message.nesting (message.path <> [ nestedEnumField, index ]) enum) (un DescriptorProto message.descriptor).enumType
+  found scope nesting path enum = do
     let name = fromMaybe "" enum.name
-    { fullName: scope <> "." <> name, nesting: Array.snoc nesting name, descriptor: enum }
+    { fullName: scope <> "." <> name, nesting: Array.snoc nesting name, path, descriptor: enum }
+  enumTypeField = 5
+  nestedEnumField = 4
 
 packagePrefix :: FileDescriptorProto -> String
 packagePrefix file = case file.package of
@@ -358,11 +373,12 @@ enumConstructors newtypes enums = settle (map (const 0) indexes)
 fileModel :: Symbols -> String -> FileDescriptorProto -> Either GeneratorError FileModel
 fileModel symbols prefix file = do
   when (file.syntax == Just "editions") (Left (EditionsUnsupported fileName))
-  messages <- traverse (messageModel symbols module_ imports proto3) (Array.filter (not <<< isMapEntry) (messagesOf file))
-  services <- traverse (serviceModel symbols module_ imports taken (packagePrefix file)) file.service
+  messages <- traverse (messageModel symbols comments module_ imports proto3) (Array.filter (not <<< isMapEntry) (messagesOf file))
+  services <- sequence (Array.mapWithIndex (serviceModel symbols comments module_ imports taken (packagePrefix file)) file.service)
   pure
     { protoName: fileName
     , moduleName: module_
+    , proto3
     , imports
     , messages
     , enums
@@ -371,7 +387,8 @@ fileModel symbols prefix file = do
   where
   fileName = fromMaybe "" file.name
   module_ = moduleOf prefix file
-  enums = map (enumModel symbols) (enumsOf file)
+  enums = map (enumModel symbols comments) (enumsOf file)
+  comments = commentsOf file
   taken = map (Names.typeName <<< _.nesting) (messagesOf file) <> map _.name enums
   imports = importsOf symbols module_ (messagesOf file) (Array.concatMap methodTypes file.service)
   methodTypes serviceDescriptor = Array.concatMap (\method -> Array.catMaybes [ method.inputType, method.outputType ]) serviceDescriptor.method
@@ -395,14 +412,23 @@ importsOf symbols module_ messages methodTypes = foldl add [] (Array.nub (Array.
     fromMaybe (String.joinWith "" segments) (Array.find (\alias -> not (Array.elem alias taken)) candidates)
   fixedAliases = [ "Array", "Bytes", "Codec", "Connect", "Decode", "Fields", "Int64", "Map", "Repeated", "Variant", "Wire", "Writer" ]
 
+-- | The comment above each thing in the file, by its path in the source code info.
+type Comments = Map (Array Int) String
+
+commentsOf :: FileDescriptorProto -> Comments
+commentsOf file = Map.fromFoldable (Array.mapMaybe commented (maybe [] _.location file.sourceCodeInfo))
+  where
+  commented location = location.leadingComments <#> \comment -> location.path /\ comment
+
 aliasOf :: Array Import -> String -> String
 aliasOf imports moduleName = maybe "" (\found -> found.alias <> ".") (Array.find (\entry -> entry.moduleName == moduleName) imports)
 
-messageModel :: Symbols -> String -> Array Import -> Boolean -> Found DescriptorProto -> Either GeneratorError MessageModel
-messageModel symbols module_ imports proto3 found = do
+messageModel :: Symbols -> Comments -> String -> Array Import -> Boolean -> Found DescriptorProto -> Either GeneratorError MessageModel
+messageModel symbols comments module_ imports proto3 found = do
   fields <- traverse (fieldModel symbols module_ imports proto3) message.field
   pure
     { fullName: String.drop 1 found.fullName
+    , comment: Map.lookup found.path comments
     , name: symbol.name
     , recursive: symbol.recursive
     , members: membersOf fields
@@ -436,7 +462,7 @@ fieldModel :: Symbols -> String -> Array Import -> Boolean -> FieldDescriptorPro
 fieldModel symbols module_ imports proto3 field = do
   value <- valueTypeOf symbols module_ imports field
   shape <- shapeOf value
-  pure { label, variable: Names.variable label, number: fromMaybe 0 field.number, value, shape }
+  pure { label, variable: Names.variable label, number: fromMaybe 0 field.number, declaredOptional: field.proto3Optional == Just true, value, shape }
   where
   label = Names.recordLabel (fromMaybe "" field.name)
   shapeOf value
@@ -474,7 +500,8 @@ fieldModel symbols module_ imports proto3 field = do
     key <- valueTypeOf symbols module_ imports entry.key
     value <- valueTypeOf symbols module_ imports entry.value
     let entryName = maybe "" _.name (field.typeName >>= \typeName -> Map.lookup typeName symbols)
-    pure { reader: "read" <> entryName, key, value }
+    let protoName = maybe "" lastSegment field.typeName
+    pure { reader: "read" <> entryName, protoName, key, value }
 
 valueTypeOf :: Symbols -> String -> Array Import -> FieldDescriptorProto -> Either GeneratorError ValueType
 valueTypeOf symbols module_ imports field = case field.type of
@@ -506,27 +533,33 @@ valueTypeOf symbols module_ imports field = case field.type of
     pure
       { qualifier: if symbol.moduleName == module_ then "" else aliasOf imports symbol.moduleName
       , name: symbol.name
+      , fullName: String.drop 1 typeName
       , recursive: symbol.recursive
       , zero: symbol.zero
       }
 
 -- | A service's row type has its name, unless a message or enum of the file has that name too;
 -- | then it's `GreeterService`.
-serviceModel :: Symbols -> String -> Array Import -> Array String -> String -> ServiceDescriptorProto -> Either GeneratorError ServiceModel
-serviceModel symbols module_ imports taken scope serviceDescriptor = do
-  methods <- traverse methodModel serviceDescriptor.method
-  pure { fullName, typeName, valueName: Names.lowerFirst typeName, methods }
+serviceModel :: Symbols -> Comments -> String -> Array Import -> Array String -> String -> Int -> ServiceDescriptorProto -> Either GeneratorError ServiceModel
+serviceModel symbols comments module_ imports taken scope serviceIndex serviceDescriptor = do
+  methods <- sequence (Array.mapWithIndex methodModel serviceDescriptor.method)
+  pure { fullName, comment: Map.lookup servicePath comments, typeName, valueName: Names.lowerFirst typeName, methods }
   where
   name = fromMaybe "" serviceDescriptor.name
   fullName = String.drop 1 (scope <> "." <> name)
   typeName = if Array.elem (Names.upperFirst name) taken then Names.upperFirst name <> "Service" else Names.upperFirst name
-  methodModel :: MethodDescriptorProto -> Either GeneratorError MethodModel
-  methodModel method = do
+  servicePath = [ serviceField, serviceIndex ]
+  serviceField = 6
+  methodField = 2
+  methodModel :: Int -> MethodDescriptorProto -> Either GeneratorError MethodModel
+  methodModel methodIndex method = do
     let methodName = fromMaybe "" method.name
     request <- reference methodName method.inputType
     response <- reference methodName method.outputType
     pure
       { label: Names.recordLabel methodName
+      , name: methodName
+      , comment: Map.lookup (servicePath <> [ methodField, methodIndex ]) comments
       , procedure: "/" <> fullName <> "/" <> methodName
       , streaming: streamingOf (method.clientStreaming == Just true) (method.serverStreaming == Just true)
       , request
@@ -543,13 +576,15 @@ serviceModel symbols module_ imports taken scope serviceDescriptor = do
     pure
       { qualifier: if symbol.moduleName == module_ then "" else aliasOf imports symbol.moduleName
       , name: symbol.name
+      , fullName: String.drop 1 found
       , recursive: symbol.recursive
       , zero: symbol.zero
       }
 
-enumModel :: Symbols -> Found EnumDescriptorProto -> EnumModel
-enumModel symbols found =
+enumModel :: Symbols -> Comments -> Found EnumDescriptorProto -> EnumModel
+enumModel symbols comments found =
   { fullName: String.drop 1 found.fullName
+  , comment: Map.lookup found.path comments
   , name: symbol.name
   , constructors: Array.zipWith (\constructor value -> { constructor, number: fromMaybe 0 value.number }) symbol.constructors found.descriptor.value
   , unrecognized: symbol.name <> "Unrecognized"
@@ -559,3 +594,7 @@ enumModel symbols found =
 
 noSymbol :: Declaration
 noSymbol = { moduleName: "", name: "", recursive: false, mapEntry: Nothing, constructors: [], zero: "" }
+
+-- | `Quote` of `.ticker.v1.Quote`.
+lastSegment :: String -> String
+lastSegment name = fromMaybe name (Array.last (String.split (Pattern ".") name))

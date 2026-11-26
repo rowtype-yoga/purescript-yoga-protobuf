@@ -65,7 +65,7 @@ To make the PureScript again after changing the `.proto`, from the repository's 
 ```bash
 googoo go -p protoc-gen-purescript --entry Yoga.Protobuf.Plugin.Native.main
 protoc --plugin=protoc-gen-purescript=bin/protoc-gen-purescript \
-  --purescript_out=module_prefix=Proto:examples/order-report/src \
+  --purescript_out=legacy,module_prefix=Proto:examples/order-report/src \
   -I examples/order-report/proto examples/order-report/proto/shop.proto
 ```
 

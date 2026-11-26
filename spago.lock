@@ -138,6 +138,31 @@
         "test": {
           "dependencies": []
         }
+      },
+      "yoga-protobuf-typed-test": {
+        "path": "spec-typed",
+        "core": {
+          "dependencies": [
+            "aff",
+            "effect",
+            "either",
+            "int64",
+            "maybe",
+            "newtype",
+            "ordered-collections",
+            "prelude",
+            "spec",
+            "strings",
+            "tuples",
+            "variant",
+            "yoga-connect",
+            "yoga-protobuf",
+            "yoga-protobuf-plugin"
+          ]
+        },
+        "test": {
+          "dependencies": []
+        }
       }
     },
     "package_set": {
@@ -814,18 +839,23 @@
     "extra_packages": {
       "go-bytes": {
         "git": "https://github.com/i-am-the-slime/purescript-go.git",
-        "ref": "v0.2.0",
+        "ref": "v0.3.0",
         "subdir": "packages/go-bytes"
       },
       "go-io": {
         "git": "https://github.com/i-am-the-slime/purescript-go.git",
-        "ref": "v0.2.0",
+        "ref": "v0.3.0",
         "subdir": "packages/go-io"
       },
       "go-os": {
         "git": "https://github.com/i-am-the-slime/purescript-go.git",
-        "ref": "v0.2.0",
+        "ref": "v0.3.0",
         "subdir": "packages/go-os"
+      },
+      "yoga-connect": {
+        "git": "https://github.com/rowtype-yoga/purescript-yoga-connect.git",
+        "ref": "v0.3.0",
+        "subdir": "packages/yoga-connect"
       }
     }
   },
@@ -1167,7 +1197,7 @@
     "go-bytes": {
       "type": "git",
       "url": "https://github.com/i-am-the-slime/purescript-go.git",
-      "rev": "9d97993edc0e42166b1135e7a48e6fdb0890c47a",
+      "rev": "30228bf274081dcb730b5238c1c00f3fc2363c4c",
       "subdir": "packages/go-bytes",
       "dependencies": [
         "newtype",
@@ -1177,7 +1207,7 @@
     "go-io": {
       "type": "git",
       "url": "https://github.com/i-am-the-slime/purescript-go.git",
-      "rev": "9d97993edc0e42166b1135e7a48e6fdb0890c47a",
+      "rev": "30228bf274081dcb730b5238c1c00f3fc2363c4c",
       "subdir": "packages/go-io",
       "dependencies": [
         "aff",
@@ -1201,7 +1231,7 @@
     "go-os": {
       "type": "git",
       "url": "https://github.com/i-am-the-slime/purescript-go.git",
-      "rev": "9d97993edc0e42166b1135e7a48e6fdb0890c47a",
+      "rev": "30228bf274081dcb730b5238c1c00f3fc2363c4c",
       "subdir": "packages/go-os",
       "dependencies": [
         "aff",
@@ -1469,6 +1499,16 @@
         "tuples"
       ]
     },
+    "record": {
+      "type": "registry",
+      "version": "4.0.1",
+      "integrity": "sha256-HcobvK5HoDEmh5pT9A2LgUujPiEbKlVOFZ+3qWnKbRI=",
+      "dependencies": [
+        "functions",
+        "prelude",
+        "unsafe-coerce"
+      ]
+    },
     "refs": {
       "type": "registry",
       "version": "6.0.1",
@@ -1640,6 +1680,27 @@
         "prelude",
         "type-equality",
         "unsafe-coerce"
+      ]
+    },
+    "yoga-connect": {
+      "type": "git",
+      "url": "https://github.com/rowtype-yoga/purescript-yoga-connect.git",
+      "rev": "098ab498b3d32cd8ff19c1fcf1292bad04856cb3",
+      "subdir": "packages/yoga-connect",
+      "dependencies": [
+        "arrays",
+        "effect",
+        "either",
+        "functions",
+        "int64",
+        "maybe",
+        "partial",
+        "prelude",
+        "record",
+        "strings",
+        "tuples",
+        "variant",
+        "yoga-protobuf"
       ]
     }
   }

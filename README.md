@@ -3,10 +3,15 @@
 Fast protocol buffers for PureScript. The same code runs on JavaScript and, compiled with
 [googoo](https://github.com/i-am-the-slime/iris-go-backend), as native Go.
 
-You point `protoc` at your `.proto` files and get a PureScript module per file. Messages are plain
-records, decoding gives you an `Either DecodeError`, and broken input is a `Left`, never an
-exception: truncated bytes, overlong varints, bad wire types and text that isn't UTF-8 all say where
-they went wrong.
+You point `protoc` at your `.proto` files and get a PureScript module per file. By default that's
+[yoga-connect](https://github.com/rowtype-yoga/purescript-yoga-connect)'s types: your messages and
+services as PureScript types, from which yoga-connect works out the codecs, a gRPC server, a client
+and the `.proto` again, just as if you'd written the types by hand.
+
+With the option `legacy` you get the codecs themselves instead. Messages are plain records,
+decoding gives you an `Either DecodeError`, and broken input is a `Left`, never an exception:
+truncated bytes, overlong varints, bad wire types and text that isn't UTF-8 all say where they went
+wrong.
 
 ```purescript
 decodeMsg :: Bytes -> Either DecodeError Msg
@@ -32,7 +37,7 @@ workspace:
   extraPackages:
     yoga-protobuf:
       git: https://github.com/rowtype-yoga/purescript-yoga-protobuf.git
-      ref: v0.2.0
+      ref: v0.3.0
 ```
 
 That's all you need on JavaScript. On Go you need googoo 0.1.18-go.5 or newer
@@ -55,17 +60,113 @@ and use `bin/protoc-gen-purescript-bun` instead. Both write exactly the same cod
 before the output directory, separated by commas:
 
 ```
-protoc --purescript_out=module_prefix=MyApp.Proto,fields_threshold=10:src foo.proto
+protoc --purescript_out=legacy,module_prefix=MyApp.Proto,fields_threshold=10:src foo.proto
 ```
 
+- `legacy` writes records and codecs instead of yoga-connect's types, like protoc-gen-purescript
+  did before 0.3.0
 - `module_prefix` puts the modules somewhere else than under `Yoga.Protobuf.Generated`
+- `services=none` leaves the services out
 - `fields_threshold` decodes messages with at least that many plain fields in two steps (off by
-  default, see below)
+  default, see below; only with `legacy`)
 
-The generated code needs these packages in your `spago.yaml`: `yoga-protobuf`, `prelude`, `effect`,
-`either`, `functions`, `int64`, `maybe`, `newtype`, `ordered-collections` and `variant`.
+The types need `yoga-connect` 0.3.0 or newer in your `spago.yaml`, and `prelude`, `int64`, `maybe`
+or `yoga-protobuf` if they use enums, 64-bit numbers, `optional` or `bytes` and unsigned numbers.
+The codecs need `yoga-protobuf`, `prelude`, `effect`, `either`, `functions`, `int64`, `maybe`,
+`newtype`, `ordered-collections` and `variant`.
 
 ## What you get
+
+### Types for yoga-connect
+
+For this:
+
+```proto
+syntax = "proto3";
+package ticker.v1;
+
+service Ticker {
+  // The quotes of every symbol, merged, as they come.
+  rpc Watch(Subscribe) returns (stream Quote);
+}
+
+// The symbols to watch, all of them if none.
+message Subscribe {
+  repeated string symbols = 1;
+}
+
+// A symbol's latest price, and its moving average.
+message Quote {
+  string symbol = 1;
+  double price = 2;
+  double average = 3;
+}
+```
+
+you get
+
+```purescript
+-- | `ticker.v1.Ticker`.
+-- |
+-- | - `watch`: The quotes of every symbol, merged, as they come.
+type Ticker = TickerWith ()
+
+-- | `Ticker` with the errors its methods reject calls with, a row for each, by name.
+type TickerWith watchErrors = Service "ticker.v1.Ticker"
+  { watch :: ServerStream Subscribe Quote watchErrors
+  }
+
+-- | The symbols to watch, all of them if none.
+type Subscribe = Named "Subscribe" (Message { symbols :: 1 := Array String })
+
+-- | A symbol's latest price, and its moving average.
+type Quote = Named "Quote"
+  ( Message
+      { symbol :: 1 := String
+      , price :: 2 := Number
+      , average :: 3 := Number
+      }
+  )
+```
+
+and from there it's yoga-connect as usual: `registerServiceWith `, `client `,
+`Handler`, `handle`, `ask`, and `printProto ` prints the `.proto` back (without its
+comments).
+
+A `.proto` can't say how a method fails, so `Ticker` rejects nothing. Say it in a service type of
+your own with `TickerWith`, which takes a row of errors for each method, in the order of the
+methods' names (so moving an `rpc` around in the `.proto` changes nothing):
+
+```purescript
+type Ticker = TickerWith (notFound :: String)
+```
+
+and `reject @"notFound" "we don't list that"` works in `watch`'s handler, and the client gets it
+back as `notFound`.
+
+- `double`, `string`, `bool`, `bytes`, `int32`, `int64`, `uint32` and `uint64` are `Number`,
+  `String`, `Boolean`, `Bytes`, `Int`, `Int64`, `UInt32` and `UInt64`
+- `repeated` is an `Array`, `optional` a `Maybe`
+- a message field is the message. If the other side leaves it out, you get one with every field at
+  its default
+- an enum is a sum type with `Generic`, `Eq`, `Ord` and `Show`: `data Side = Unspecified | White |
+  Black`. A number it doesn't have is read as its first constructor
+- a `oneof` is a `OneOf`, which handlers see as a `Variant`. If none of its fields is there, it's
+  the first one at its default
+- a `map<string, int64>` is an `Array` of `{ key :: String, value :: Int64 }`, in the order you
+  give them. It's the same bytes as a map, since that's what a map is on the wire
+- nested messages and enums are `Outer_Inner`
+- types from other `.proto` files come from their modules, so generate those too
+- a message is `Named` when `printProto` wouldn't give it its name back otherwise: a method's
+  request would be `WatchRequest`, a field's message is named after the field. An enum is `Named`
+  where it's used. Names never go over the wire, so this only matters to the `.proto`
+
+Some things the types can't say, and the generator tells you which and where, so use `legacy` for
+those files: proto2, `float` and the `sint`, `fixed` and `sfixed` types, a message that contains
+itself, an enum whose values aren't 0, 1, 2, … in order, and a method whose name doesn't start
+with a capital letter (`get_quote`, which yoga-connect would call `GetQuote`).
+
+### Codecs, with `legacy`
 
 For this:
 
@@ -139,7 +240,7 @@ up (50 fields: 860 ns against 1,930).
 
 ### Not there yet
 
-Editions, groups, extensions, services, proto2 default values (you get a `Nothing`), closed proto2
+Editions, groups, extensions, proto2 default values (you get a `Nothing`), closed proto2
 enums (they're open like proto3's), merging a message field that appears twice (the last one
 wins), keeping unknown fields, JSON.
 
@@ -218,6 +319,13 @@ The specs are a program, so they run on both backends:
 spago build -p yoga-protobuf-test
 bun -e "import('./output-es/Test.Main/index.js').then(spec => spec.main())"
 googoo run --go -p yoga-protobuf-test --main Test.Main
+```
+
+The types for yoga-connect have specs of their own, which print the `.proto` back and check that
+the types write the same bytes as the codecs. yoga-connect needs googoo, so they run on Go:
+
+```
+googoo run --go -p yoga-protobuf-typed-test --main Test.Typed.Main
 ```
 
 They cover every generator feature with [spec/proto](spec/proto), against bytes protoc-gen-go and

@@ -15,7 +15,7 @@ package:
     - partial: ">=4.0.1 <5.0.0"
     - prelude: ">=6.0.3 <7.0.0"
   publish:
-    version: 0.1.0
+    version: 0.3.0
     license: MIT
     location:
       githubOwner: rowtype-yoga
@@ -24,6 +24,10 @@ workspace:
   packageSet:
     registry: 83.3.0
   extraPackages:
+    yoga-connect:
+      git: https://github.com/rowtype-yoga/purescript-yoga-connect.git
+      ref: v0.3.0
+      subdir: packages/yoga-connect
     go-io:
       git: https://github.com/i-am-the-slime/purescript-go.git
       ref: v0.3.0

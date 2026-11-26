@@ -1,0 +1,79 @@
+syntax = "proto3";
+package typed.v1;
+
+import "imported.proto";
+
+option go_package = "yogapb/typed/pb";
+
+// A game's lobby: everything protoc-gen-purescript's types say, for the specs.
+service Lobby {
+  // The table of this name.
+  rpc GetTable(TableRequest) returns (Table);
+  // Every table, each time it changes.
+  rpc WatchTables(TableRequest) returns (stream Table);
+  // Seats the players as they come, and says how many sat down.
+  rpc Seat(stream Player) returns (Seated);
+  rpc Play(stream Move) returns (stream Move);
+}
+
+enum Side {
+  SIDE_UNSPECIFIED = 0;
+  SIDE_WHITE = 1;
+  SIDE_BLACK = 2;
+}
+
+message TableRequest {
+  string name = 1;
+}
+
+// Who sits at a table, and how their game is going.
+message Table {
+  string name = 1;
+  repeated Player players = 2;
+  optional int32 round = 3;
+  map<string, int64> scores = 4;
+  Side side = 5;
+  Side winner = 6;
+  imported.Thing mascot = 7;
+  Clock clock = 8;
+  oneof status {
+    string waiting_for = 9;
+    Side won_by = 10;
+    Clock.Expiry expired = 11;
+  }
+  bytes snapshot = 12;
+  uint32 seats = 13;
+  uint64 games = 14;
+  bool open = 15;
+  repeated Side sides = 16;
+  map<string, Player> by_name = 17;
+  optional Clock spare_clock = 18;
+}
+
+message Player {
+  string name = 1;
+  Side side = 2;
+  double rating = 3;
+}
+
+message Clock {
+  message Expiry {
+    int64 at = 1;
+  }
+  enum Kind {
+    KIND_BLITZ = 0;
+    KIND_CLASSICAL = 1;
+  }
+  int64 remaining = 1;
+  Kind kind = 2;
+  Expiry expiry = 3;
+}
+
+message Seated {
+  int32 count = 1;
+}
+
+message Move {
+  string from = 1;
+  string to = 2;
+}
