@@ -6,9 +6,9 @@ type Bytes = []byte
 
 func EqImpl(left []byte, right []byte) bool { return bytes.Equal(left, right) }
 
-func LengthImpl(data []byte) int32 { return int32(len(data)) }
+func LengthImpl(data []byte) int { return len(data) }
 
-func FromArrayImpl(numbers []int32) []byte {
+func FromArrayImpl(numbers []int) []byte {
 	data := make([]byte, len(numbers))
 	for index, number := range numbers {
 		data[index] = byte(number)
@@ -16,10 +16,10 @@ func FromArrayImpl(numbers []int32) []byte {
 	return data
 }
 
-func ToArrayImpl(data []byte) []int32 {
-	numbers := make([]int32, len(data))
+func ToArrayImpl(data []byte) []int {
+	numbers := make([]int, len(data))
 	for index, value := range data {
-		numbers[index] = int32(value)
+		numbers[index] = int(value)
 	}
 	return numbers
 }

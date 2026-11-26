@@ -32,10 +32,10 @@ workspace:
   extraPackages:
     yoga-protobuf:
       git: https://github.com/rowtype-yoga/purescript-yoga-protobuf.git
-      ref: v0.1.0
+      ref: v0.2.0
 ```
 
-That's all you need on JavaScript. On Go you need Iris 0.1.18-go.2 or newer
+That's all you need on JavaScript. On Go you need googoo 0.1.18-go.5 or newer
 (`brew install spago i-am-the-slime/tap/iris`) and Go 1.27.
 
 ## Generating code

@@ -20,6 +20,6 @@ var Backend = "go"
 //go:noinline
 func Opaque[A any](value A) A { return value }
 
-var sunk int32
+var sunk int
 
-func Sink(value int32) { sunk += value }
+func Sink(value int) { sunk += value }

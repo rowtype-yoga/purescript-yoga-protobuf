@@ -38,7 +38,7 @@ module Yoga.Protobuf.Wire
 import Prelude
 
 import Data.Function.Uncurried (Fn2, Fn3, Fn4, mkFn2, runFn2, runFn3, runFn4)
-import Data.Int.Bits (xor, zshr, (.&.))
+import Data.Int.Bits (shr, xor, (.&.))
 import Data.Int64 (Int64)
 import Data.Int64 as Int64
 
@@ -186,7 +186,7 @@ foreign import varintCountImpl :: Fn3 Bytes Int Int Int
 
 -- | The number a zigzag-encoded one stands for: 0, 1, 2, 3 are 0, -1, 1, -2.
 zigzag32 :: Int -> Int
-zigzag32 n = (n `zshr` 1) `xor` negate (n .&. 1)
+zigzag32 n = ((n `shr` 1) .&. 2147483647) `xor` negate (n .&. 1)
 
 -- | `zigzag32` for `Int64`.
 zigzag64 :: Int64 -> Int64

@@ -9,7 +9,6 @@ module Yoga.Protobuf.Unsigned
 
 import Prelude
 
-import Data.Int.Bits (shl, xor)
 import Data.Int64 (Int64)
 import Data.Int64 as Int64
 import Data.Newtype (class Newtype, un)
@@ -21,9 +20,9 @@ derive instance Newtype UInt32 _
 derive instance Eq UInt32
 
 instance Ord UInt32 where
-  compare left right = compare (flipSign (un UInt32 left)) (flipSign (un UInt32 right))
+  compare left right = compare (fromTwoToThe31 left) (fromTwoToThe31 right) <> compare (un UInt32 left) (un UInt32 right)
     where
-    flipSign bits = bits `xor` signBit
+    fromTwoToThe31 value = un UInt32 value < 0
 
 instance Show UInt32 where
   show value = "(UInt32 " <> show (un UInt32 value) <> ")"
@@ -43,4 +42,4 @@ instance Show UInt64 where
   show value = "(UInt64 " <> show (un UInt64 value) <> ")"
 
 signBit :: Int
-signBit = 1 `shl` 31
+signBit = -2147483647 - 1
